@@ -240,6 +240,7 @@ func (m *LogParser) syncLogFormat() {
 func (m *LogParser) elasticSearchBuildIndex() {
 	c := elastigo.NewConn()
 	c.ClusterDomains = m.ElasticSearchHosts
+	c.Domain = m.ElasticSearchHost
 	c.Port = m.ElasticSearchPort
 	indexor := c.NewBulkIndexerErrors(10, 60)
 	indexor.Start()
