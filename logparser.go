@@ -245,6 +245,7 @@ func (m *LogParser) elasticSearchBuildIndex() {
 	indexor := c.NewBulkIndexerErrors(10, 60)
 	indexor.Start()
 	defer indexor.Stop()
+	defer c.Close()
 	var err error
 	ticker := time.Tick(time.Second * 600)
 	yy, mm, dd := time.Now().Date()
