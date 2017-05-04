@@ -67,6 +67,7 @@ func (m *LogParserPool) getLogTopics() error {
 	size := len(topicsKey) + 1
 	m.Lock()
 	defer m.Unlock()
+	m.checklist = make(map[string]string)
 	for _, value := range pairs {
 		if len(value.Key) <= size {
 			continue

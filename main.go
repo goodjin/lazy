@@ -9,7 +9,7 @@ import (
 )
 
 var (
-	confFile = flag.String("conf", "lazy.json", "lazy config file")
+	confFile = flag.String("c", "lazy.json", "lazy config file")
 )
 
 func main() {
@@ -22,7 +22,6 @@ func main() {
 	logParserPool = &LogParserPool{
 		Setting:       c,
 		exitChannel:   make(chan int),
-		checklist:     make(map[string]string),
 		logParserList: make(map[string]*LogParser),
 	}
 	logParserPool.Run()

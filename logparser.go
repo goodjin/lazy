@@ -26,7 +26,6 @@ type LogParser struct {
 	sync.Mutex
 	*Setting
 	logTopic        string
-	logChannel      string
 	consumer        *nsq.Consumer
 	producer        *nsq.Producer
 	logSetting      *LogSetting
@@ -52,7 +51,6 @@ func (m *LogParser) Run() error {
 	m.getRegexp()
 	m.getBayes()
 	m.wordSplitRegexp = regexp.MustCompile(m.logSetting.SplitRegexp)
-	m.logChannel = "logtoelasticsearch#ephemeral"
 	for i := 0; i < m.MaxInFlight/10+1; i++ {
 		go m.elasticSearchBuildIndex()
 	}
@@ -62,7 +60,7 @@ func (m *LogParser) Run() error {
 	cfg.Set("snappy", true)
 	cfg.Set("max_in_flight", m.MaxInFlight)
 	m.producer, err = nsq.NewProducer(m.NsqdAddress, cfg)
-	m.consumer, err = nsq.NewConsumer(m.logSetting.LogSource, m.logChannel, cfg)
+	m.consumer, err = nsq.NewConsumer(m.logSetting.LogSource, m.Setting.LogChannel, cfg)
 	if err != nil {
 		log.Println(m.logSetting.LogSource, err)
 		return err
@@ -95,7 +93,11 @@ func (m *LogParser) HandleMessage(msg *nsq.Message) error {
 	}
 	m.Lock()
 	defer m.Unlock()
-	message, err := m.logSetting.Parser([]byte(logFormat.GetRawmsg()))
+	msglog := logFormat.GetRawmsg()
+	if len(msglog) < 1 {
+		return nil
+	}
+	message, err := m.logSetting.Parser([]byte(msglog))
 	if err != nil {
 		log.Println(err, logFormat.Rawmsg)
 		return nil
@@ -122,7 +124,7 @@ func (m *LogParser) HandleMessage(msg *nsq.Message) error {
 					continue
 				}
 				_, likely, strict := m.c.LogScores(words)
-				message["bayes_check"] = "chaos"
+				message["bayes_check"] = "undefined"
 				if strict {
 					message["bayes_check"] = m.classifiers[likely]
 				}
@@ -134,7 +136,7 @@ func (m *LogParser) HandleMessage(msg *nsq.Message) error {
 	if m.logSetting.LogType == "rfc3164" && message["ttl"] == "0" {
 		return nil
 	}
-	if message["bayes_check"] == "chaos" {
+	if message["bayes_check"] == "undefined" {
 		m.producer.Publish(m.TrainTopic, msg.Body)
 	}
 	record.body = message
