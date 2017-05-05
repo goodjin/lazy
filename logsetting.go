@@ -10,13 +10,14 @@ import (
 // LogSetting define log format setting
 
 type LogSetting struct {
-	LogType      string            `json:"log_type"`
-	SplitRegexp  string            `json:"split_regexp,omitempty"`
-	LogSource    string            `json:"log_source"`
-	IndexTTL     string            `json:"index_ttl"`
+	LogType      string            `json:"logType"`
+	SplitRegexp  string            `json:"splitRegexp,omitempty"`
+	LogSource    string            `json:"logSource"`
+	IndexTTL     string            `json:"indexTTL"`
 	Tokens       []string          `json:"tokens,omitempty"`
-	TokenFormat  map[string]string `json:"token_format,omitempty"`
-	AddtionCheck []string          `json:"addtion_check,omitempty"`
+	IgnoreTags   []string          `json:"ignoreTags,omitempty"`
+	TokenFormat  map[string]string `json:"tokenFormat,omitempty"`
+	AddtionCheck []string          `json:"addtionCheck,omitempty"`
 }
 
 func (l *LogSetting) Parser(msg []byte) (map[string]interface{}, error) {

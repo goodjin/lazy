@@ -105,6 +105,9 @@ func (m *LogParser) HandleMessage(msg *nsq.Message) error {
 	message["from"] = logFormat.From
 	if m.logSetting.LogType == "rfc3164" {
 		tag := message["tag"].(string)
+		if _, ok := m.logSetting.IgnoreTags[tag]; ok {
+			return nil
+		}
 		for _, check := range m.logSetting.AddtionCheck {
 			switch check {
 			case "regexp":
