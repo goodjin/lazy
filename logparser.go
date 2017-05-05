@@ -23,7 +23,7 @@ type RegexpSetting struct {
 }
 
 type LogParser struct {
-	sync.Mutex
+	sync.RWMutex
 	*Setting
 	logTopic        string
 	consumer        *nsq.Consumer
@@ -82,24 +82,29 @@ func (m *LogParser) Stop() {
 
 func (m *LogParser) HandleMessage(msg *nsq.Message) error {
 	var logFormat LogFormat
-	err := proto.Unmarshal(msg.Body, &logFormat)
-	if err != nil {
-		log.Println(err)
-		return nil
+	var msglog string
+	m.RLock()
+	defer m.RUnlock()
+	if m.logSetting.LogType == "rfc3164" {
+		err := proto.Unmarshal(msg.Body, &logFormat)
+		if err != nil {
+			log.Println(err)
+			return nil
+		}
+		msglog = logFormat.GetRawmsg()
+		if len(msglog) < 1 {
+			return nil
+		}
+	} else {
+		msglog = string(msg.Body)
 	}
 	record := ElasticRecord{
 		errChannel: make(chan error),
 		ttl:        m.logSetting.IndexTTL,
 	}
-	m.Lock()
-	defer m.Unlock()
-	msglog := logFormat.GetRawmsg()
-	if len(msglog) < 1 {
-		return nil
-	}
 	message, err := m.logSetting.Parser([]byte(msglog))
 	if err != nil {
-		log.Println(err, logFormat.Rawmsg)
+		log.Println(err, msglog)
 		return nil
 	}
 	message["from"] = logFormat.From
