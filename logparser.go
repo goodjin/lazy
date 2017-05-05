@@ -214,6 +214,9 @@ func (m *LogParser) getRegexp() error {
 }
 
 func (m *LogParser) syncLogFormat() {
+	if err := m.getLogFormat(); err != nil {
+		log.Println(err)
+	}
 	ticker := time.Tick(time.Second * 600)
 	for {
 		select {
@@ -298,6 +301,7 @@ func (m *LogParser) getLogFormat() error {
 	if err != nil {
 		return err
 	}
+	logSetting.hashedIgnoreTags = make(map[string]string)
 	for _, v := range logSetting.IgnoreTags {
 		logSetting.hashedIgnoreTags[v] = v
 	}
