@@ -24,7 +24,7 @@ func main() {
 		exitChannel:   make(chan int),
 		logParserList: make(map[string]*LogParser),
 	}
-	logParserPool.Run()
+	go logParserPool.Run()
 	termchan := make(chan os.Signal, 1)
 	signal.Notify(termchan, syscall.SIGINT, syscall.SIGTERM)
 	<-termchan
