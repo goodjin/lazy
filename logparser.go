@@ -105,7 +105,7 @@ func (m *LogParser) HandleMessage(msg *nsq.Message) error {
 	message["from"] = logFormat.From
 	if m.logSetting.LogType == "rfc3164" {
 		tag := message["tag"].(string)
-		if _, ok := m.logSetting.IgnoreTags[tag]; ok {
+		if _, ok := m.logSetting.hashedIgnoreTags[tag]; ok {
 			return nil
 		}
 		for _, check := range m.logSetting.AddtionCheck {
@@ -297,6 +297,9 @@ func (m *LogParser) getLogFormat() error {
 	err = json.Unmarshal(value.Value, &logSetting)
 	if err != nil {
 		return err
+	}
+	for _, v := range logSetting.IgnoreTags {
+		logSetting.hashedIgnoreTags[v] = v
 	}
 	m.Lock()
 	defer m.Unlock()
