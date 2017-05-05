@@ -103,11 +103,15 @@ func (m *LogParser) HandleMessage(msg *nsq.Message) error {
 		ttl:        m.logSetting.IndexTTL,
 	}
 	message, err := m.logSetting.Parser([]byte(msglog))
+	if m.logSetting.LogType == "rfc3164" {
+		message["from"] = logFormat.From
+	} else {
+		message["timestamp"] = time.Now()
+	}
 	if err != nil {
 		log.Println(err, msglog)
 		return nil
 	}
-	message["from"] = logFormat.From
 	if m.logSetting.LogType == "rfc3164" {
 		tag := message["tag"].(string)
 		if _, ok := m.logSetting.hashedIgnoreTags[tag]; ok {
