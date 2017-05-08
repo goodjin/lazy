@@ -86,7 +86,7 @@ func (m *LogParser) HandleMessage(msg *nsq.Message) error {
 	var msglog string
 	m.RLock()
 	logSetting := m.logSetting
-	regexpMap := m.regexMap
+	regexMap := m.regexMap
 	classifiers := m.classifiers
 	m.RUnlock()
 	if logSetting.LogType == "rfc3164" {
