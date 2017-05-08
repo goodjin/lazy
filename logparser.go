@@ -86,6 +86,8 @@ func (m *LogParser) HandleMessage(msg *nsq.Message) error {
 	var msglog string
 	m.RLock()
 	logSetting := m.logSetting
+	regexpMap := m.regexMap
+	classifiers := m.classifiers
 	m.RUnlock()
 	if logSetting.LogType == "rfc3164" {
 		err := proto.Unmarshal(msg.Body, &logFormat)
@@ -122,7 +124,7 @@ func (m *LogParser) HandleMessage(msg *nsq.Message) error {
 		for _, check := range logSetting.AddtionCheck {
 			switch check {
 			case "regexp":
-				rg, ok := m.regexMap[tag]
+				rg, ok := regexMap[tag]
 				if ok {
 					message["ttl"] = "-1"
 					for _, r := range rg {
@@ -142,7 +144,7 @@ func (m *LogParser) HandleMessage(msg *nsq.Message) error {
 				m.bayesLock.Unlock()
 				message["bayes_check"] = "undefined"
 				if strict {
-					message["bayes_check"] = m.classifiers[likely]
+					message["bayes_check"] = classifiers[likely]
 				}
 			default:
 				log.Println("unsupportted check way", check)
