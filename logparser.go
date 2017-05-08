@@ -85,7 +85,6 @@ func (m *LogParser) HandleMessage(msg *nsq.Message) error {
 	var logFormat LogFormat
 	var msglog string
 	m.RLock()
-	defer m.RUnlock()
 	if m.logSetting.LogType == "rfc3164" {
 		err := proto.Unmarshal(msg.Body, &logFormat)
 		if err != nil {
@@ -147,16 +146,115 @@ func (m *LogParser) HandleMessage(msg *nsq.Message) error {
 				log.Println("unsupportted check way", check)
 			}
 		}
+		if message["ttl"] == 1 {
+			return nil
+		}
 	}
-	if m.logSetting.LogType == "rfc3164" && message["ttl"] == "0" {
-		return nil
-	}
+	m.RUnlock()
 	if message["bayes_check"] == "undefined" {
 		m.producer.Publish(m.TrainTopic, msg.Body)
 	}
 	record.body = message
 	m.msgChannel <- record
 	return <-record.errChannel
+}
+
+func (m *LogParser) syncLogFormat() {
+	if err := m.getLogFormat(); err != nil {
+		log.Println(err)
+	}
+	ticker := time.Tick(time.Second * 60)
+	for {
+		select {
+		case <-ticker:
+			if err := m.getLogFormat(); err != nil {
+				log.Println(err)
+				continue
+			}
+			for _, check := range m.logSetting.AddtionCheck {
+				switch check {
+				case "regexp":
+					if err := m.getRegexp(); err != nil {
+						log.Println(err)
+					}
+				case "bayes":
+					if err := m.getBayes(); err != nil {
+						log.Println(err)
+					}
+				default:
+					log.Println("unsupportted check way", check)
+				}
+			}
+		case <-m.exitChannel:
+			return
+		}
+	}
+}
+
+func (m *LogParser) elasticSearchBuildIndex() {
+	c := elastigo.NewConn()
+	m.RLock()
+	c.SetHosts(m.logSetting.ElasticSearchHosts)
+	indexor := c.NewBulkIndexerErrors(10, 60)
+	indexor.Start()
+	defer indexor.Stop()
+	defer c.Close()
+	var err error
+	ticker := time.Tick(time.Second * 600)
+	yy, mm, dd := time.Now().Date()
+	indexPatten := fmt.Sprintf("-%d.%d.%d", yy, mm, dd)
+	logsource := m.logSetting.LogSource
+	logtype := m.logSetting.LogType
+	m.RUnlock()
+	searchIndex := logsource + indexPatten
+	for {
+		timestamp := time.Now()
+		select {
+		case <-ticker:
+			yy, mm, dd = timestamp.Date()
+			indexPatten = fmt.Sprintf("-%d.%d.%d", yy, mm, dd)
+			searchIndex = logsource + indexPatten
+		case errBuf := <-indexor.ErrorChannel:
+			log.Println(errBuf.Err)
+		case r := <-m.msgChannel:
+			err = indexor.Index(searchIndex, logtype, "", "", fmt.Sprintf("%ss", r.ttl), &timestamp, r.body)
+			r.errChannel <- err
+		case <-m.exitChannel:
+			log.Println("exit elasticsearch")
+			return
+		}
+	}
+}
+
+func (m *LogParser) parseWords(msg string) []string {
+	t := strings.Split(m.wordSplitRegexp.ReplaceAllString(msg, " "), " ")
+	var tokens []string
+	for _, v := range t {
+		tokens = append(tokens, strings.ToLower(v))
+	}
+	return tokens
+}
+
+func (m *LogParser) getLogFormat() error {
+	kv := m.client.KV()
+	topicsKey := fmt.Sprintf("%s/topics/%s", m.ConsulKey, m.logTopic)
+	value, _, err := kv.Get(topicsKey, nil)
+	if err != nil {
+		return err
+	}
+	var logSetting LogSetting
+	err = json.Unmarshal(value.Value, &logSetting)
+	if err != nil {
+		return err
+	}
+	logSetting.hashedIgnoreTags = make(map[string]string)
+	for _, v := range logSetting.IgnoreTags {
+		logSetting.hashedIgnoreTags[v] = v
+	}
+	m.Lock()
+	defer m.Unlock()
+	m.logSetting = &logSetting
+	return nil
 }
 
 func (m *LogParser) getBayes() error {
@@ -222,103 +320,5 @@ func (m *LogParser) getRegexp() error {
 			}
 		}
 	}
-	return nil
-}
-
-func (m *LogParser) syncLogFormat() {
-	if err := m.getLogFormat(); err != nil {
-		log.Println(err)
-	}
-	ticker := time.Tick(time.Second * 600)
-	for {
-		select {
-		case <-ticker:
-			if err := m.getLogFormat(); err != nil {
-				log.Println(err)
-				continue
-			}
-			for _, check := range m.logSetting.AddtionCheck {
-				switch check {
-				case "regexp":
-					if err := m.getRegexp(); err != nil {
-						log.Println(err)
-					}
-				case "bayes":
-					if err := m.getBayes(); err != nil {
-						log.Println(err)
-					}
-				default:
-					log.Println("unsupportted check way", check)
-				}
-			}
-		case <-m.exitChannel:
-			return
-		}
-	}
-}
-
-func (m *LogParser) elasticSearchBuildIndex() {
-	c := elastigo.NewConn()
-	m.RLock()
-	c.SetHosts(m.logSetting.ElasticSearchHosts)
-	indexor := c.NewBulkIndexerErrors(10, 10)
-	indexor.Start()
-	defer indexor.Stop()
-	defer c.Close()
-	var err error
-	ticker := time.Tick(time.Second * 600)
-	yy, mm, dd := time.Now().Date()
-	indexPatten := fmt.Sprintf("-%d.%d.%d", yy, mm, dd)
-	logsource := m.logSetting.LogSource
-	logtype := m.logSetting.LogType
-	m.RUnlock()
-	searchIndex := logsource + indexPatten
-	for {
-		timestamp := time.Now()
-		select {
-		case <-ticker:
-			yy, mm, dd = timestamp.Date()
-			indexPatten = fmt.Sprintf("-%d.%d.%d", yy, mm, dd)
-			searchIndex = logsource + indexPatten
-		case errBuf := <-indexor.ErrorChannel:
-			log.Println(errBuf.Err)
-		case r := <-m.msgChannel:
-			err = indexor.Index(searchIndex, logtype, "", "", fmt.Sprintf("%ss", r.ttl), &timestamp, r.body)
-			r.errChannel <- err
-		case <-m.exitChannel:
-			log.Println("exit elasticsearch")
-			return
-		}
-	}
-}
-
-func (m *LogParser) parseWords(msg string) []string {
-	t := strings.Split(m.wordSplitRegexp.ReplaceAllString(msg, " "), " ")
-	var tokens []string
-	for _, v := range t {
-		tokens = append(tokens, strings.ToLower(v))
-	}
-	return tokens
-}
-
-func (m *LogParser) getLogFormat() error {
-	kv := m.client.KV()
-	topicsKey := fmt.Sprintf("%s/topics/%s", m.ConsulKey, m.logTopic)
-	value, _, err := kv.Get(topicsKey, nil)
-	if err != nil {
-		return err
-	}
-	var logSetting LogSetting
-	err = json.Unmarshal(value.Value, &logSetting)
-	if err != nil {
-		return err
-	}
-	logSetting.hashedIgnoreTags = make(map[string]string)
-	for _, v := range logSetting.IgnoreTags {
-		logSetting.hashedIgnoreTags[v] = v
-	}
-	m.Lock()
-	defer m.Unlock()
-	m.logSetting = &logSetting
 	return nil
 }

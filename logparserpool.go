@@ -28,7 +28,7 @@ func (m *LogParserPool) Stop() {
 }
 
 func (m *LogParserPool) Run() {
-	ticker := time.Tick(time.Second * 600)
+	ticker := time.Tick(time.Second * 60)
 	config := api.DefaultConfig()
 	config.Address = m.ConsulAddress
 	config.Datacenter = m.Datacenter
@@ -48,6 +48,7 @@ func (m *LogParserPool) Run() {
 			err = m.getLogTopics()
 			if err != nil {
 				log.Println(err)
+				continue
 			}
 			m.checkLogParsers()
 		case <-m.exitChannel:
