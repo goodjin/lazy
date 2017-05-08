@@ -23,17 +23,17 @@ type RegexpSetting struct {
 }
 
 type LogParser struct {
-	sync.RWMutex
-	bayesLock sync.Mutex
 	*Setting
 	logTopic        string
 	consumer        *nsq.Consumer
 	producer        *nsq.Producer
 	logSetting      *LogSetting
+	bayesLock       sync.Mutex
 	classifiers     []string
 	c               *bayesian.Classifier
 	wordSplitRegexp *regexp.Regexp
 	client          *api.Client
+	regxpLock       sync.Mutex
 	regexMap        map[string][]*RegexpSetting
 	exitChannel     chan int
 	msgChannel      chan ElasticRecord
@@ -51,6 +51,10 @@ func (m *LogParser) Run() error {
 	}
 	m.getRegexp()
 	m.getBayes()
+	if err := m.getLogFormat(); err != nil {
+		log.Println(err)
+		return err
+	}
 	m.wordSplitRegexp = regexp.MustCompile(m.logSetting.SplitRegexp)
 	for i := 0; i < m.MaxInFlight/10+1; i++ {
 		go m.elasticSearchBuildIndex()
@@ -71,7 +75,7 @@ func (m *LogParser) Run() error {
 	if err != nil {
 		return err
 	}
-	go m.syncLogFormat()
+	go m.syncLogAddtionCheck()
 	return err
 }
 
@@ -84,12 +88,7 @@ func (m *LogParser) Stop() {
 func (m *LogParser) HandleMessage(msg *nsq.Message) error {
 	var logFormat LogFormat
 	var msglog string
-	m.RLock()
-	logSetting := m.logSetting
-	regexMap := m.regexMap
-	classifiers := m.classifiers
-	m.RUnlock()
-	if logSetting.LogType == "rfc3164" {
+	if m.logSetting.LogType == "rfc3164" {
 		err := proto.Unmarshal(msg.Body, &logFormat)
 		if err != nil {
 			log.Println(err)
@@ -104,10 +103,10 @@ func (m *LogParser) HandleMessage(msg *nsq.Message) error {
 	}
 	record := ElasticRecord{
 		errChannel: make(chan error),
-		ttl:        logSetting.IndexTTL,
+		ttl:        m.logSetting.IndexTTL,
 	}
-	message, err := logSetting.Parser([]byte(msglog))
-	if logSetting.LogType == "rfc3164" {
+	message, err := m.logSetting.Parser([]byte(msglog))
+	if m.logSetting.LogType == "rfc3164" {
 		message["from"] = logFormat.From
 	} else {
 		message["timestamp"] = time.Now()
@@ -116,15 +115,15 @@ func (m *LogParser) HandleMessage(msg *nsq.Message) error {
 		log.Println(err, msglog)
 		return nil
 	}
-	if logSetting.LogType == "rfc3164" {
+	if m.logSetting.LogType == "rfc3164" {
 		tag := message["tag"].(string)
-		if _, ok := logSetting.hashedIgnoreTags[tag]; ok {
+		if _, ok := m.logSetting.hashedIgnoreTags[tag]; ok {
 			return nil
 		}
-		for _, check := range logSetting.AddtionCheck {
+		for _, check := range m.logSetting.AddtionCheck {
 			switch check {
 			case "regexp":
-				rg, ok := regexMap[tag]
+				rg, ok := m.regexMap[tag]
 				if ok {
 					message["ttl"] = "-1"
 					for _, r := range rg {
@@ -144,7 +143,7 @@ func (m *LogParser) HandleMessage(msg *nsq.Message) error {
 				m.bayesLock.Unlock()
 				message["bayes_check"] = "undefined"
 				if strict {
-					message["bayes_check"] = classifiers[likely]
+					message["bayes_check"] = m.classifiers[likely]
 				}
 			default:
 				log.Println("unsupportted check way", check)
@@ -162,18 +161,11 @@ func (m *LogParser) HandleMessage(msg *nsq.Message) error {
 	return <-record.errChannel
 }
 
-func (m *LogParser) syncLogFormat() {
-	if err := m.getLogFormat(); err != nil {
-		log.Println(err)
-	}
+func (m *LogParser) syncLogAddtionCheck() {
 	ticker := time.Tick(time.Second * 60)
 	for {
 		select {
 		case <-ticker:
-			if err := m.getLogFormat(); err != nil {
-				log.Println(err)
-				continue
-			}
 			for _, check := range m.logSetting.AddtionCheck {
 				switch check {
 				case "regexp":
@@ -196,11 +188,9 @@ func (m *LogParser) syncLogFormat() {
 
 func (m *LogParser) elasticSearchBuildIndex() {
 	c := elastigo.NewConn()
-	m.RLock()
 	c.SetHosts(m.logSetting.ElasticSearchHosts)
 	logsource := m.logSetting.LogSource
 	logtype := m.logSetting.LogType
-	m.RUnlock()
 	indexor := c.NewBulkIndexerErrors(10, 60)
 	ticker := time.Tick(time.Second * 600)
 	yy, mm, dd := time.Now().Date()
@@ -254,8 +244,6 @@ func (m *LogParser) getLogFormat() error {
 	for _, v := range logSetting.IgnoreTags {
 		logSetting.hashedIgnoreTags[v] = v
 	}
-	m.Lock()
-	defer m.Unlock()
 	m.logSetting = &logSetting
 	return nil
 }
@@ -291,10 +279,10 @@ func (m *LogParser) getBayes() error {
 		words := strings.Split(string(value.Value), ",")
 		mc.Learn(words, c)
 	}
-	m.Lock()
+	m.bayesLock.Lock()
 	m.classifiers = clist
 	m.c = mc
-	m.Unlock()
+	m.bayesLock.Unlock()
 	return nil
 }
 
@@ -305,8 +293,6 @@ func (m *LogParser) getRegexp() error {
 	if err != nil {
 		return err
 	}
-	m.Lock()
-	defer m.Unlock()
 	size := len(m.ConsulKey) + 1
 	for _, value := range pairs {
 		if len(value.Key) > size {
@@ -320,7 +306,9 @@ func (m *LogParser) getRegexp() error {
 					}
 					regs[i].Exp = x
 				}
+				m.regxpLock.Lock()
 				m.regexMap[value.Key[size:]] = regs
+				m.regxpLock.Unlock()
 			}
 		}
 	}
