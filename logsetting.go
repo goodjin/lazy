@@ -15,8 +15,6 @@ type LogSetting struct {
 	LogSource          string            `json:"logSource"`
 	IndexTTL           string            `json:"indexTTL"`
 	ElasticSearchHosts []string          `json:"elasticsearchHosts"`
-	ElasticSearchHost  string            `json:"elasticsearchHost"`
-	ElasticSearchPort  string            `json:"elasticsearchPort"`
 	Tokens             []string          `json:"tokens,omitempty"`
 	IgnoreTags         []string          `json:"ignoreTags,omitempty"`
 	TokenFormat        map[string]string `json:"tokenFormat,omitempty"`
