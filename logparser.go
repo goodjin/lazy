@@ -85,7 +85,9 @@ func (m *LogParser) HandleMessage(msg *nsq.Message) error {
 	var logFormat LogFormat
 	var msglog string
 	m.RLock()
-	if m.logSetting.LogType == "rfc3164" {
+	logSetting := m.logSetting
+	m.RUnlock()
+	if logSetting.LogType == "rfc3164" {
 		err := proto.Unmarshal(msg.Body, &logFormat)
 		if err != nil {
 			log.Println(err)
@@ -100,10 +102,10 @@ func (m *LogParser) HandleMessage(msg *nsq.Message) error {
 	}
 	record := ElasticRecord{
 		errChannel: make(chan error),
-		ttl:        m.logSetting.IndexTTL,
+		ttl:        logSetting.IndexTTL,
 	}
-	message, err := m.logSetting.Parser([]byte(msglog))
-	if m.logSetting.LogType == "rfc3164" {
+	message, err := logSetting.Parser([]byte(msglog))
+	if logSetting.LogType == "rfc3164" {
 		message["from"] = logFormat.From
 	} else {
 		message["timestamp"] = time.Now()
@@ -112,12 +114,12 @@ func (m *LogParser) HandleMessage(msg *nsq.Message) error {
 		log.Println(err, msglog)
 		return nil
 	}
-	if m.logSetting.LogType == "rfc3164" {
+	if logSetting.LogType == "rfc3164" {
 		tag := message["tag"].(string)
-		if _, ok := m.logSetting.hashedIgnoreTags[tag]; ok {
+		if _, ok := logSetting.hashedIgnoreTags[tag]; ok {
 			return nil
 		}
-		for _, check := range m.logSetting.AddtionCheck {
+		for _, check := range logSetting.AddtionCheck {
 			switch check {
 			case "regexp":
 				rg, ok := m.regexMap[tag]
@@ -150,7 +152,6 @@ func (m *LogParser) HandleMessage(msg *nsq.Message) error {
 			return nil
 		}
 	}
-	m.RUnlock()
 	if message["bayes_check"] == "undefined" {
 		m.producer.Publish(m.TrainTopic, msg.Body)
 	}
@@ -195,17 +196,17 @@ func (m *LogParser) elasticSearchBuildIndex() {
 	c := elastigo.NewConn()
 	m.RLock()
 	c.SetHosts(m.logSetting.ElasticSearchHosts)
+	logsource := m.logSetting.LogSource
+	logtype := m.logSetting.LogType
+	m.RUnlock()
 	indexor := c.NewBulkIndexerErrors(10, 60)
+	ticker := time.Tick(time.Second * 600)
+	yy, mm, dd := time.Now().Date()
+	indexPatten := fmt.Sprintf("-%d.%d.%d", yy, mm, dd)
 	indexor.Start()
 	defer indexor.Stop()
 	defer c.Close()
 	var err error
-	ticker := time.Tick(time.Second * 600)
-	yy, mm, dd := time.Now().Date()
-	indexPatten := fmt.Sprintf("-%d.%d.%d", yy, mm, dd)
-	logsource := m.logSetting.LogSource
-	logtype := m.logSetting.LogType
-	m.RUnlock()
 	searchIndex := logsource + indexPatten
 	for {
 		timestamp := time.Now()
