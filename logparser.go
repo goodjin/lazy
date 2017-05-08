@@ -24,6 +24,7 @@ type RegexpSetting struct {
 
 type LogParser struct {
 	sync.RWMutex
+	bayesLock sync.Mutex
 	*Setting
 	logTopic        string
 	consumer        *nsq.Consumer
@@ -135,7 +136,9 @@ func (m *LogParser) HandleMessage(msg *nsq.Message) error {
 				if m.c == nil {
 					continue
 				}
+				m.bayesLock.Lock()
 				_, likely, strict := m.c.LogScores(words)
+				m.bayesLock.Unlock()
 				message["bayes_check"] = "undefined"
 				if strict {
 					message["bayes_check"] = m.classifiers[likely]
