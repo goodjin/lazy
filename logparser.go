@@ -256,6 +256,7 @@ func (m *LogParser) syncLogFormat() {
 
 func (m *LogParser) elasticSearchBuildIndex() {
 	c := elastigo.NewConn()
+	m.RLock()
 	c.SetHosts(m.logSetting.ElasticSearchHosts)
 	indexor := c.NewBulkIndexerErrors(10, 10)
 	indexor.Start()
@@ -267,6 +268,7 @@ func (m *LogParser) elasticSearchBuildIndex() {
 	indexPatten := fmt.Sprintf("-%d.%d.%d", yy, mm, dd)
 	logsource := m.logSetting.LogSource
 	logtype := m.logSetting.LogType
+	m.RUnlock()
 	searchIndex := logsource + indexPatten
 	for {
 		timestamp := time.Now()
