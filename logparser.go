@@ -137,10 +137,10 @@ func (m *LogParser) HandleMessage(msg *nsq.Message) error {
 				}
 			case "bayes":
 				words := m.parseWords(message["content"].(string))
+				m.bayesLock.Lock()
 				if m.c == nil {
 					continue
 				}
-				m.bayesLock.Lock()
 				_, likely, strict := m.c.LogScores(words)
 				classifiers := m.classifiers
 				m.bayesLock.Unlock()
