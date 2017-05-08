@@ -282,18 +282,19 @@ func (m *LogParser) getBayes() error {
 		clist = append(clist, value.Key[size:])
 		classifierList = append(classifierList, c)
 	}
-	m.Lock()
-	defer m.Unlock()
-	m.c = bayesian.NewClassifier(classifierList...)
+	mc := bayesian.NewClassifier(classifierList...)
 	for _, value := range classifiers {
 		if len(value.Key) <= size {
 			continue
 		}
 		c := bayesian.Class(value.Key[size:])
 		words := strings.Split(string(value.Value), ",")
-		m.c.Learn(words, c)
+		mc.Learn(words, c)
 	}
+	m.Lock()
 	m.classifiers = clist
+	m.c = mc
+	m.Unlock()
 	return nil
 }
 
