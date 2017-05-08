@@ -123,7 +123,9 @@ func (m *LogParser) HandleMessage(msg *nsq.Message) error {
 		for _, check := range m.logSetting.AddtionCheck {
 			switch check {
 			case "regexp":
+				m.regxpLock.Lock()
 				rg, ok := m.regexMap[tag]
+				m.regxpLock.Unlock()
 				if ok {
 					message["ttl"] = "-1"
 					for _, r := range rg {
@@ -140,10 +142,11 @@ func (m *LogParser) HandleMessage(msg *nsq.Message) error {
 				}
 				m.bayesLock.Lock()
 				_, likely, strict := m.c.LogScores(words)
+				classifiers := m.classifiers
 				m.bayesLock.Unlock()
 				message["bayes_check"] = "undefined"
 				if strict {
-					message["bayes_check"] = m.classifiers[likely]
+					message["bayes_check"] = classifiers[likely]
 				}
 			default:
 				log.Println("unsupportted check way", check)
