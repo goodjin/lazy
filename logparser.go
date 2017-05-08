@@ -282,7 +282,7 @@ func (m *LogParser) elasticSearchBuildIndex() {
 			r.errChannel <- err
 		case <-m.exitChannel:
 			log.Println("exit elasticsearch")
-			break
+			return
 		}
 	}
 }
