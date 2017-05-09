@@ -27,8 +27,7 @@ func (m *LogParserPool) Stop() {
 	}
 }
 
-func (m *LogParserPool) Run() {
-	ticker := time.Tick(time.Second * 60)
+func (m *LogParserPool) Run() error {
 	config := api.DefaultConfig()
 	config.Address = m.ConsulAddress
 	config.Datacenter = m.Datacenter
@@ -36,21 +35,21 @@ func (m *LogParserPool) Run() {
 	var err error
 	m.client, err = api.NewClient(config)
 	if err != nil {
-		log.Println(err)
+		return err
 	}
 	err = m.getLogTopics()
-	if err != nil {
-		log.Println("faild to get topic", err)
-	}
+	go m.syncLogTopics()
+	return err
+}
+func (m *LogParserPool) syncLogTopics() {
+	ticker := time.Tick(time.Second * 60)
 	for {
 		select {
 		case <-ticker:
-			err = m.getLogTopics()
+			err := m.getLogTopics()
 			if err != nil {
 				log.Println(err)
-				continue
 			}
-			m.checkLogParsers()
 		case <-m.exitChannel:
 			return
 		}
@@ -59,54 +58,69 @@ func (m *LogParserPool) Run() {
 
 //"%s/topics"
 func (m *LogParserPool) getLogTopics() error {
-	kv := m.client.KV()
 	topicsKey := fmt.Sprintf("%s/topics", m.ConsulKey)
-	pairs, _, err := kv.List(topicsKey, nil)
+	conf, err := m.ReadConfigFromConsul(topicsKey)
 	if err != nil {
 		return err
 	}
-	size := len(topicsKey) + 1
 	m.Lock()
-	defer m.Unlock()
-	m.checklist = make(map[string]string)
-	for _, value := range pairs {
-		if len(value.Key) <= size {
+	for k, v := range conf {
+		if m.checklist[k] == v {
 			continue
 		}
-		topic := value.Key[size:]
-		m.checklist[topic] = topic
-		if _, ok := m.logParserList[topic]; !ok {
-			var logSetting LogSetting
-			err = json.Unmarshal(value.Value, &logSetting)
-			if err != nil {
-				return err
-			}
+		var logSetting LogSetting
+		err = json.Unmarshal([]byte(v), &logSetting)
+		if err != nil {
+			return err
+		}
+		if _, ok := m.logParserList[k]; !ok {
 			w := &LogParser{
 				Setting:     m.Setting,
-				logTopic:    topic,
+				logTopic:    k,
 				regexMap:    make(map[string][]*RegexpSetting),
 				exitChannel: make(chan int),
 				msgChannel:  make(chan ElasticRecord),
 				logSetting:  &logSetting,
 			}
 			if err := w.Run(); err != nil {
-				log.Println(topic, err)
+				log.Println(k, err)
 				continue
 			}
-			m.logParserList[topic] = w
+			m.logParserList[k] = w
+		} else {
+			m.logParserList[k].Stop()
+			w := &LogParser{
+				Setting:     m.Setting,
+				logTopic:    k,
+				regexMap:    make(map[string][]*RegexpSetting),
+				exitChannel: make(chan int),
+				msgChannel:  make(chan ElasticRecord),
+				logSetting:  &logSetting,
+			}
+			if err := w.Run(); err != nil {
+				log.Println(k, err)
+				continue
+			}
+			m.logParserList[k] = w
 		}
+		m.checklist[k] = v
 	}
+	m.Unlock()
 	return nil
 }
 
-func (m *LogParserPool) checkLogParsers() {
-	m.Lock()
-	defer m.Unlock()
-	for k := range m.logParserList {
-		if _, ok := m.checklist[k]; !ok {
-			m.logParserList[k].Stop()
-			log.Println("remove:", k)
-			delete(m.logParserList, k)
+func (m *LogParserPool) ReadConfigFromConsul(key string) (map[string]string, error) {
+	consulSetting := make(map[string]string)
+	kv := m.client.KV()
+	pairs, _, err := kv.List(key, nil)
+	if err != nil {
+		return consulSetting, err
+	}
+	size := len(key) + 1
+	for _, value := range pairs {
+		if len(value.Key) > size {
+			consulSetting[value.Key[size:]] = string(value.Value)
 		}
 	}
+	return consulSetting, err
 }

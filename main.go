@@ -24,7 +24,10 @@ func main() {
 		exitChannel:   make(chan int),
 		logParserList: make(map[string]*LogParser),
 	}
-	go logParserPool.Run()
+	err = logParserPool.Run()
+	if err != nil {
+		log.Fatal("failed to start pool error", err)
+	}
 	termchan := make(chan os.Signal, 1)
 	signal.Notify(termchan, syscall.SIGINT, syscall.SIGTERM)
 	<-termchan

@@ -52,7 +52,7 @@ func (m *LogParser) Run() error {
 	m.getRegexp()
 	m.getBayes()
 	if err := m.getLogFormat(); err != nil {
-		log.Println(err)
+		log.Println("get log format", err)
 		return err
 	}
 	m.wordSplitRegexp = regexp.MustCompile(m.logSetting.SplitRegexp)
@@ -91,7 +91,7 @@ func (m *LogParser) HandleMessage(msg *nsq.Message) error {
 	if m.logSetting.LogType == "rfc3164" {
 		err := proto.Unmarshal(msg.Body, &logFormat)
 		if err != nil {
-			log.Println(err)
+			log.Println("proto unmarshal", err, string(msg.Body))
 			return nil
 		}
 		msglog = logFormat.GetRawmsg()
@@ -173,11 +173,11 @@ func (m *LogParser) syncLogAddtionCheck() {
 				switch check {
 				case "regexp":
 					if err := m.getRegexp(); err != nil {
-						log.Println(err)
+						log.Println("failed to get regexp", err)
 					}
 				case "bayes":
 					if err := m.getBayes(); err != nil {
-						log.Println(err)
+						log.Println("failed to get bayes", err)
 					}
 				default:
 					log.Println("unsupportted check way", check)
@@ -195,6 +195,7 @@ func (m *LogParser) elasticSearchBuildIndex() {
 	logsource := m.logSetting.LogSource
 	logtype := m.logSetting.LogType
 	indexor := c.NewBulkIndexerErrors(10, 60)
+	indexor.BulkMaxBuffer = 65536
 	ticker := time.Tick(time.Second * 600)
 	yy, mm, dd := time.Now().Date()
 	indexPatten := fmt.Sprintf("-%d.%d.%d", yy, mm, dd)
