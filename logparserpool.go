@@ -88,7 +88,9 @@ func (m *LogParserPool) getLogTopics() error {
 			}
 			m.logParserList[k] = w
 		} else {
-			m.logParserList[k].Stop()
+			if m.logParserList[k] != nil {
+				m.logParserList[k].Stop()
+			}
 			w := &LogParser{
 				Setting:     m.Setting,
 				logTopic:    k,

@@ -21,6 +21,7 @@ func main() {
 	var logParserPool *LogParserPool
 	logParserPool = &LogParserPool{
 		Setting:       c,
+		checklist:     make(map[string]string),
 		exitChannel:   make(chan int),
 		logParserList: make(map[string]*LogParser),
 	}
