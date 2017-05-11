@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/hashicorp/consul/api"
+	"gopkg.in/olivere/elastic.v3"
 	"log"
 	"sync"
 	"time"
@@ -79,7 +80,7 @@ func (m *LogParserPool) getLogTopics() error {
 				logTopic:    k,
 				regexMap:    make(map[string][]*RegexpSetting),
 				exitChannel: make(chan int),
-				msgChannel:  make(chan ElasticRecord),
+				msgChannel:  make(chan *elastic.BulkIndexRequest),
 				logSetting:  &logSetting,
 			}
 			if err := w.Run(); err != nil {
@@ -96,7 +97,7 @@ func (m *LogParserPool) getLogTopics() error {
 				logTopic:    k,
 				regexMap:    make(map[string][]*RegexpSetting),
 				exitChannel: make(chan int),
-				msgChannel:  make(chan ElasticRecord),
+				msgChannel:  make(chan *elastic.BulkIndexRequest),
 				logSetting:  &logSetting,
 			}
 			if err := w.Run(); err != nil {

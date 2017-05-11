@@ -6,8 +6,8 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/hashicorp/consul/api"
 	"github.com/jbrukh/bayesian"
-	"github.com/mattbaird/elastigo/lib"
 	"github.com/nsqio/go-nsq"
+	"gopkg.in/olivere/elastic.v3"
 	"log"
 	"os"
 	"regexp"
@@ -19,7 +19,7 @@ import (
 type RegexpSetting struct {
 	E   string         `json:"regexp"`
 	Exp *regexp.Regexp `json:"-"`
-	TTL string         `json:"ttl"`
+	TTL int            `json:"ttl"`
 }
 
 type LogParser struct {
@@ -36,7 +36,7 @@ type LogParser struct {
 	regxpLock       sync.Mutex
 	regexMap        map[string][]*RegexpSetting
 	exitChannel     chan int
-	msgChannel      chan ElasticRecord
+	msgChannel      chan *elastic.BulkIndexRequest
 }
 
 func (m *LogParser) Run() error {
@@ -87,81 +87,81 @@ func (m *LogParser) Stop() {
 
 func (m *LogParser) HandleMessage(msg *nsq.Message) error {
 	var logFormat LogFormat
-	var msglog string
+	var logmsg string
 	if m.logSetting.LogType == "rfc3164" {
 		err := proto.Unmarshal(msg.Body, &logFormat)
 		if err != nil {
 			log.Println("proto unmarshal", err, string(msg.Body))
 			return nil
 		}
-		msglog = logFormat.GetRawmsg()
-		if len(msglog) < 1 {
+		logmsg = logFormat.GetRawmsg()
+		if len(logmsg) < 1 {
 			return nil
 		}
 	} else {
-		msglog = string(msg.Body)
+		logmsg = string(msg.Body)
 	}
-	record := ElasticRecord{
-		errChannel: make(chan error),
-		ttl:        m.logSetting.IndexTTL,
-	}
-	message, err := m.logSetting.Parser([]byte(msglog))
-	if m.logSetting.LogType == "rfc3164" {
-		message["from"] = logFormat.From
-	} else {
-		message["timestamp"] = time.Now()
-	}
+	message, err := m.logSetting.Parser([]byte(logmsg))
 	if err != nil {
-		log.Println(err, msglog)
+		log.Println(err, logmsg)
 		return nil
 	}
+	message["ttl"] = "-1"
 	if m.logSetting.LogType == "rfc3164" {
-		tag := message["tag"].(string)
-		if _, ok := m.logSetting.hashedIgnoreTags[tag]; ok {
+		message["from"] = logFormat.From
+		indexObject := m.AddtionCheck(message)
+		if indexObject == nil {
 			return nil
 		}
-		for _, check := range m.logSetting.AddtionCheck {
-			switch check {
-			case "regexp":
-				m.regxpLock.Lock()
-				rg, ok := m.regexMap[tag]
-				m.regxpLock.Unlock()
-				if ok {
-					message["ttl"] = "-1"
-					for _, r := range rg {
-						if r.Exp.MatchString(message["content"].(string)) {
-							message["ttl"] = r.TTL
-							record.ttl = r.TTL
-						}
+	} else {
+		message["timestamp"] = time.Now()
+		indexObject := elastic.NewBulkIndexRequest().Doc(message).Type(m.logSetting.LogType)
+		m.msgChannel <- indexObject
+	}
+	return nil
+}
+func (m *LogParser) AddtionCheck(message map[string]interface{}) *elastic.BulkIndexRequest {
+	tag := message["tag"].(string)
+	if _, ok := m.logSetting.hashedIgnoreTags[tag]; ok {
+		return nil
+	}
+	for _, check := range m.logSetting.AddtionCheck {
+		switch check {
+		case "regexp":
+			m.regxpLock.Lock()
+			rg, ok := m.regexMap[tag]
+			m.regxpLock.Unlock()
+			if ok {
+				for _, r := range rg {
+					if r.Exp.MatchString(message["content"].(string)) {
+						message["ttl"] = r.TTL
 					}
 				}
-			case "bayes":
-				words := m.parseWords(message["content"].(string))
-				m.bayesLock.Lock()
-				if m.c == nil {
-					continue
-				}
-				_, likely, strict := m.c.LogScores(words)
-				classifiers := m.classifiers
-				m.bayesLock.Unlock()
-				message["bayes_check"] = "undefined"
-				if strict {
-					message["bayes_check"] = classifiers[likely]
-				}
-			default:
-				log.Println("unsupportted check way", check)
 			}
-		}
-		if message["ttl"] == 1 {
-			return nil
+		case "bayes":
+			words := m.parseWords(message["content"].(string))
+			m.bayesLock.Lock()
+			if m.c == nil {
+				continue
+			}
+			_, likely, strict := m.c.LogScores(words)
+			classifiers := m.classifiers
+			m.bayesLock.Unlock()
+			message["bayes_check"] = "undefined"
+			if strict {
+				message["bayes_check"] = classifiers[likely]
+			}
+		default:
+			log.Println("unsupportted check way", check)
 		}
 	}
 	if message["bayes_check"] == "undefined" {
-		m.producer.Publish(m.TrainTopic, msg.Body)
+		body, err := json.Marshal(message)
+		if err == nil {
+			m.producer.Publish(m.TrainTopic, body)
+		}
 	}
-	record.body = message
-	m.msgChannel <- record
-	return <-record.errChannel
+	return elastic.NewBulkIndexRequest().Doc(message).Type(m.logSetting.LogType)
 }
 
 func (m *LogParser) syncLogAddtionCheck() {
@@ -189,20 +189,34 @@ func (m *LogParser) syncLogAddtionCheck() {
 	}
 }
 
+func (m *LogParser) afterFn(executionId int64, requests []elastic.BulkableRequest, response *elastic.BulkResponse, err error) {
+	if err != nil {
+		for _, request := range requests {
+			m.msgChannel <- &elastic.BulkIndexRequest{BulkableRequest: request}
+		}
+	}
+}
 func (m *LogParser) elasticSearchBuildIndex() {
-	c := elastigo.NewConn()
-	c.SetHosts(m.logSetting.ElasticSearchHosts)
+	c, err := elastic.NewClient(elastic.SetURL(m.logSetting.ElasticSearchHosts...))
+	if err != nil {
+		log.Println("create elastic client", err)
+		return
+	}
 	logsource := m.logSetting.LogSource
-	logtype := m.logSetting.LogType
-	indexor := c.NewBulkIndexerErrors(10, 60)
-	indexor.BulkMaxBuffer = 65536
-	ticker := time.Tick(time.Second * 600)
+	ticker := time.Tick(time.Second * 60)
 	yy, mm, dd := time.Now().Date()
 	indexPatten := fmt.Sprintf("-%d.%d.%d", yy, mm, dd)
-	indexor.Start()
-	defer indexor.Stop()
-	defer c.Close()
-	var err error
+	bulkProcessor, err := c.BulkProcessor().FlushInterval(10 * time.Second).Workers(10).After(m.afterFn).Do()
+	if err != nil {
+		log.Println("create elastic processor", err)
+		return
+	}
+	err = bulkProcessor.Start()
+	if err != nil {
+		log.Println("start bulkprocessor", err)
+		return
+	}
+	defer bulkProcessor.Stop()
 	searchIndex := logsource + indexPatten
 	for {
 		timestamp := time.Now()
@@ -211,11 +225,8 @@ func (m *LogParser) elasticSearchBuildIndex() {
 			yy, mm, dd = timestamp.Date()
 			indexPatten = fmt.Sprintf("-%d.%d.%d", yy, mm, dd)
 			searchIndex = logsource + indexPatten
-		case errBuf := <-indexor.ErrorChannel:
-			log.Println(errBuf.Err)
-		case r := <-m.msgChannel:
-			err = indexor.Index(searchIndex, logtype, "", "", fmt.Sprintf("%ss", r.ttl), &timestamp, r.body)
-			r.errChannel <- err
+		case indexObject := <-m.msgChannel:
+			bulkProcessor.Add(indexObject.Index(searchIndex))
 		case <-m.exitChannel:
 			log.Println("exit elasticsearch")
 			return

@@ -1,15 +1,8 @@
 package main
 
-// Record is used to pass data to elasticsearch
-type ElasticRecord struct {
-	ttl        string
-	body       map[string]interface{}
-	errChannel chan error
-}
-
 func generateLogTokens(buf []byte) []string {
 	var tokens []string
-	token := make([]byte, 0)
+	var token []byte
 	var lastChar byte
 	for _, v := range buf {
 		switch v {
