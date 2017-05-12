@@ -103,17 +103,19 @@ func (m *LogParser) HandleMessage(msg *nsq.Message) error {
 	}
 	message, err := m.logSetting.Parser([]byte(logmsg))
 	if err != nil {
-		log.Println(err, logmsg)
+		log.Println(err, logmsg, logFormat.GetFrom())
 		return nil
 	}
-	message["ttl"] = "-1"
 	if m.logSetting.LogType == "rfc3164" {
-		message["from"] = logFormat.From
+		//message["_ttl"] = "365d"
+		message["from"] = logFormat.GetFrom()
 		indexObject := m.AddtionCheck(message)
 		if indexObject == nil {
 			return nil
 		}
+		m.msgChannel <- indexObject
 	} else {
+		//message["_ttl"] = "7d"
 		message["timestamp"] = time.Now()
 		indexObject := elastic.NewBulkIndexRequest().Doc(message).Type(m.logSetting.LogType)
 		m.msgChannel <- indexObject
@@ -134,7 +136,10 @@ func (m *LogParser) AddtionCheck(message map[string]interface{}) *elastic.BulkIn
 			if ok {
 				for _, r := range rg {
 					if r.Exp.MatchString(message["content"].(string)) {
-						message["ttl"] = r.TTL
+						//message["_ttl"] = r.TTL
+						if r.TTL == 0 {
+							return nil
+						}
 					}
 				}
 			}
@@ -142,7 +147,7 @@ func (m *LogParser) AddtionCheck(message map[string]interface{}) *elastic.BulkIn
 			words := m.parseWords(message["content"].(string))
 			m.bayesLock.Lock()
 			if m.c == nil {
-				continue
+				break
 			}
 			_, likely, strict := m.c.LogScores(words)
 			classifiers := m.classifiers
