@@ -123,6 +123,9 @@ func (m *LogParser) HandleMessage(msg *nsq.Message) error {
 	return nil
 }
 func (m *LogParser) AddtionCheck(message map[string]interface{}) *elastic.BulkIndexRequest {
+	if _, ok := message["tag"]; !ok {
+		return elastic.NewBulkIndexRequest().Doc(message).Type(m.logSetting.LogType)
+	}
 	tag := message["tag"].(string)
 	if _, ok := m.logSetting.hashedIgnoreTags[tag]; ok {
 		return nil
@@ -147,6 +150,7 @@ func (m *LogParser) AddtionCheck(message map[string]interface{}) *elastic.BulkIn
 			words := m.parseWords(message["content"].(string))
 			m.bayesLock.Lock()
 			if m.c == nil {
+				m.bayesLock.Unlock()
 				break
 			}
 			_, likely, strict := m.c.LogScores(words)

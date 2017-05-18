@@ -5,6 +5,7 @@ import (
 	"github.com/jeromer/syslogparser/rfc3164"
 	"strconv"
 	"strings"
+	"time"
 )
 
 // LogSetting define log format setting
@@ -19,6 +20,7 @@ type LogSetting struct {
 	IgnoreTags         []string          `json:"ignoreTags,omitempty"`
 	TokenFormat        map[string]string `json:"tokenFormat,omitempty"`
 	AddtionCheck       []string          `json:"addtionCheck,omitempty"`
+	TimeZone           string            `json:"timezone,omitempty"`
 	hashedIgnoreTags   map[string]string
 }
 
@@ -28,8 +30,13 @@ func (l *LogSetting) Parser(msg []byte) (map[string]interface{}, error) {
 	if l.LogType == "rfc3164" {
 		p := rfc3164.NewParser(msg)
 		if err = p.Parse(); err != nil {
-			data["raw"] = msg
+			data["content"] = msg
+			data["timestamp"] = time.Now()
 			return data, nil
+		}
+		location, err := time.LoadLocation(l.TimeZone)
+		if err == nil {
+			p.Location(location)
 		}
 		data = p.Dump()
 		tag := data["tag"].(string)
@@ -39,7 +46,7 @@ func (l *LogSetting) Parser(msg []byte) (map[string]interface{}, error) {
 		if len(tag) == 0 {
 			tag = "misc"
 		}
-		data["tag"] = tag
+		data["tag"] = strings.Trim(tag, "-")
 	} else {
 		data, err = l.wildFormat(generateLogTokens(msg))
 	}
