@@ -30,7 +30,7 @@ func (l *LogSetting) Parser(msg []byte) (map[string]interface{}, error) {
 	if l.LogType == "rfc3164" {
 		p := rfc3164.NewParser(msg)
 		if err = p.Parse(); err != nil {
-			data["content"] = msg
+			data["content"] = string(msg)
 			data["timestamp"] = time.Now()
 			return data, nil
 		}
