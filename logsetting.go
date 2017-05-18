@@ -29,14 +29,14 @@ func (l *LogSetting) Parser(msg []byte) (map[string]interface{}, error) {
 	var err error
 	if l.LogType == "rfc3164" {
 		p := rfc3164.NewParser(msg)
+		location, err := time.LoadLocation(l.TimeZone)
+		if err == nil {
+			p.Location(location)
+		}
 		if err = p.Parse(); err != nil {
 			data["content"] = string(msg)
 			data["timestamp"] = time.Now()
 			return data, nil
-		}
-		location, err := time.LoadLocation(l.TimeZone)
-		if err == nil {
-			p.Location(location)
 		}
 		data = p.Dump()
 		tag := data["tag"].(string)
