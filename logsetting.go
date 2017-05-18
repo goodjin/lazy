@@ -28,7 +28,8 @@ func (l *LogSetting) Parser(msg []byte) (map[string]interface{}, error) {
 	if l.LogType == "rfc3164" {
 		p := rfc3164.NewParser(msg)
 		if err = p.Parse(); err != nil {
-			return data, err
+			data["raw"] = msg
+			return data, nil
 		}
 		data = p.Dump()
 		tag := data["tag"].(string)
