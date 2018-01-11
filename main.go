@@ -2,10 +2,12 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"log"
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 )
 
 var (
@@ -18,19 +20,37 @@ func main() {
 	if err != nil {
 		log.Fatal("config parse error", err)
 	}
-	var logParserPool *LogParserPool
-	logParserPool = &LogParserPool{
-		Setting:       c,
-		checklist:     make(map[string]string),
-		exitChannel:   make(chan int),
-		logParserList: make(map[string]*LogParser),
-	}
-	err = logParserPool.Run()
+	var logTaskConfig *LogTaskConfig
+	err = logTaskConfig.InitConfig()
 	if err != nil {
 		log.Fatal("failed to start pool error", err)
 	}
+	ticker := time.Tick(time.Second * 60)
 	termchan := make(chan os.Signal, 1)
 	signal.Notify(termchan, syscall.SIGINT, syscall.SIGTERM)
-	<-termchan
-	logParserPool.Stop()
+	taskPool := NewTaskPool()
+	for {
+		select {
+		case <-ticker:
+			topicsKey := fmt.Sprintf("%s/tasks", c.ConsulKey)
+			tasksettings, err := logTaskConfig.ReadConfigFromConsul(topicsKey)
+			if err != nil {
+				log.Println(err)
+			}
+			taskPool.Cleanup(tasksettings)
+			for k, v := range tasksettings {
+				if taskPool.IsStarted(k) {
+					continue
+				}
+				w := NewLogParserTask(k, []byte(v))
+				if err = w.Start(); err != nil {
+					log.Println(k, v, err)
+				}
+				taskPool.Join(w)
+			}
+		case <-termchan:
+			taskPool.Stop()
+			return
+		}
+	}
 }
