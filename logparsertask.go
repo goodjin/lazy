@@ -54,35 +54,37 @@ func (t *LogParserTask) StartDataSource() error {
 	}
 }
 
-func (t *LogParserTask) StorageBackend() {
+func (t *LogParserTask) StorageBackend() error {
 	switch t.LogConfig.Config["StorageBackend"] {
 	case "Elastic":
-		t.StartElastic()
+		return t.StartElastic()
 	default:
-		for {
-			select {
-			case <-t.dataChan:
-			case <-t.exitChan:
-				return
+		go func() {
+			for {
+				select {
+				case <-t.dataChan:
+				case <-t.exitChan:
+					return
+				}
 			}
-		}
+		}()
 	}
+	return nil
 }
 func (t *LogParserTask) Start() error {
 	err := t.StartDataSource()
 	if err != nil {
 		return err
 	}
-	go t.StorageBackend()
-	return nil
+	return t.StorageBackend()
 }
 
-func (t *LogParserTask) StartElastic() {
+func (t *LogParserTask) StartElastic() error {
 	hosts := strings.Split(t.LogConfig.Config["ElasticSearchEndPoint"], ",")
 	c, err := elastic.NewClient(elastic.SetURL(hosts...))
 	if err != nil {
 		log.Println("create elastic client", err)
-		return
+		return err
 	}
 	logsource := t.LogConfig.Config["LogSource"]
 	ticker := time.Tick(time.Second * 60)
@@ -91,24 +93,27 @@ func (t *LogParserTask) StartElastic() {
 	bulkProcessor, err := c.BulkProcessor().FlushInterval(10 * time.Second).Workers(t.LogConfig.TasksCount).After(t.afterFn).Do(nil)
 	if err != nil {
 		log.Println("create elastic processor and start", err)
-		return
+		return err
 	}
-	searchIndex := logsource + indexPatten
-	for {
-		select {
-		case <-ticker:
-			timestamp := time.Now()
-			yy, mm, dd = timestamp.Date()
-			indexPatten = fmt.Sprintf("-%d.%d.%d", yy, mm, dd)
-			searchIndex = logsource + indexPatten
-		case indexObject := <-t.dataChan:
-			bulkProcessor.Add(indexObject.Index(searchIndex))
-		case <-t.exitChan:
-			bulkProcessor.Stop()
-			log.Println("exit elasticsearch")
-			return
+	go func() {
+		searchIndex := logsource + indexPatten
+		for {
+			select {
+			case <-ticker:
+				timestamp := time.Now()
+				yy, mm, dd = timestamp.Date()
+				indexPatten = fmt.Sprintf("-%d.%d.%d", yy, mm, dd)
+				searchIndex = logsource + indexPatten
+			case indexObject := <-t.dataChan:
+				bulkProcessor.Add(indexObject.Index(searchIndex))
+			case <-t.exitChan:
+				bulkProcessor.Stop()
+				log.Println("exit elasticsearch")
+				return
+			}
 		}
-	}
+	}()
+	return nil
 }
 
 func (m *LogParserTask) afterFn(executionID int64, requests []elastic.BulkableRequest, response *elastic.BulkResponse, err error) {

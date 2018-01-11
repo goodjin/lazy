@@ -45,6 +45,8 @@ func main() {
 				w := NewLogParserTask(k, []byte(v))
 				if err = w.Start(); err != nil {
 					log.Println(k, v, err)
+				} else {
+					w.Stop()
 				}
 				taskPool.Join(w)
 			}
