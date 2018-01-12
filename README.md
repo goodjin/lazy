@@ -3,31 +3,7 @@ lazy
 
 yet another log analyzer
 
-```
-%s/topics/%s
-```
+Current just support read log from NSQ and Write to Elastic.
 
-return topic
-
-`lazy/topic/syslog`
-```
-{"log_type":"rfc3164","split_regexp":"\(|\)|{|}|/","log_source":"onlinesystemlog","index_ttl":"604800","addtion_check":["regexp","bayes"]}
-```
-
-```
-%s/regexp/%s
-```
-return regexp for topic
-`lazy/regexp/syslog/sudo`
-```
-[{"exp":"asd","ttl":"30"}]
-```
-
-```
-%s/classifiers/%s
-```
-return classifiers for topic
-`lazy/classifiers/syslog/normal`
-```
-a,b,c
-```
+it support log filter by regexp, bayes.
+Next step should support hyperloglog and so on.
