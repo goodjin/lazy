@@ -17,7 +17,7 @@ type NSQReadTask struct {
 	msgChan    chan *elastic.BulkIndexRequest
 }
 
-func NewNSQTask(logsetting *LogSetting) chan *elastic.BulkIndexRequest {
+func NewNSQTask(logsetting *LogSetting, exitChan chan int) *NSQReadTask {
 	m := &NSQReadTask{}
 	m.msgChan = make(chan *elastic.BulkIndexRequest)
 	m.logsetting = logsetting
@@ -34,7 +34,7 @@ func NewNSQTask(logsetting *LogSetting) chan *elastic.BulkIndexRequest {
 	m.consumer.AddConcurrentHandlers(m, m.logsetting.TasksCount)
 	lookupds := strings.Split(m.logsetting.Config["LookupdAddresses"], ",")
 	err = m.consumer.ConnectToNSQLookupds(lookupds)
-	return m.msgChan
+	return m
 }
 
 func (m *NSQReadTask) HandleMessage(msg *nsq.Message) error {

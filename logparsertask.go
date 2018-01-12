@@ -15,8 +15,13 @@ type LogParserTask struct {
 	sync.Mutex
 	Config   []byte
 	ID       string
+	dataSource DataSource
 	dataChan chan *elastic.BulkIndexRequest
 	exitChan chan int
+}
+
+type DataSource interface {
+	Stop()
 }
 
 func (t *LogParserTask) Stop() {
@@ -45,9 +50,10 @@ func NewLogParserTask(id string, config []byte) *LogParserTask {
 
 func (t *LogParserTask) StartDataSource() error {
 	var err error
-	switch t.LogConfig.Config["Source"] {
+	switch t.LogConfig.Config["DataSource"] {
 	case "NSQ":
-		t.dataChan = NewNSQTask(t.LogConfig)
+		t.dataSource = NewNSQTask(t.LogConfig)
+		t.dataChan = t.msgChan
 		return err
 	default:
 		return fmt.Errorf("not supported")
