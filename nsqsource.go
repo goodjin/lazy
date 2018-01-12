@@ -17,7 +17,7 @@ type NSQReadTask struct {
 	msgChan    chan *elastic.BulkIndexRequest
 }
 
-func NewNSQTask(logsetting *LogSetting, exitChan chan int) *NSQReadTask {
+func NewNSQTask(logsetting *LogSetting) *NSQReadTask {
 	m := &NSQReadTask{}
 	m.msgChan = make(chan *elastic.BulkIndexRequest)
 	m.logsetting = logsetting

@@ -13,11 +13,11 @@ import (
 type LogParserTask struct {
 	LogConfig *LogSetting `json:"LogSetting"`
 	sync.Mutex
-	Config   []byte
-	ID       string
+	Config     []byte
+	ID         string
 	dataSource DataSource
-	dataChan chan *elastic.BulkIndexRequest
-	exitChan chan int
+	dataChan   chan *elastic.BulkIndexRequest
+	exitChan   chan int
 }
 
 type DataSource interface {
@@ -25,6 +25,7 @@ type DataSource interface {
 }
 
 func (t *LogParserTask) Stop() {
+	t.dataSource.Stop()
 	close(t.exitChan)
 }
 
@@ -52,8 +53,9 @@ func (t *LogParserTask) StartDataSource() error {
 	var err error
 	switch t.LogConfig.Config["DataSource"] {
 	case "NSQ":
-		t.dataSource = NewNSQTask(t.LogConfig)
-		t.dataChan = t.msgChan
+		m := NewNSQTask(t.LogConfig)
+		t.dataSource = m
+		t.dataChan = m.msgChan
 		return err
 	default:
 		return fmt.Errorf("not supported")
