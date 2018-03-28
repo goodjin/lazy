@@ -25,13 +25,8 @@ func main() {
 		log.Fatal("failed to start pool error", err)
 	}
 	ticker := time.Tick(time.Second * 60)
-	done := make(chan bool, 1)
 	termchan := make(chan os.Signal, 1)
 	signal.Notify(termchan, syscall.SIGINT, syscall.SIGTERM)
-	go func() {
-		<-termchan
-		done <- true
-	}()
 	taskPool := NewTaskPool()
 	topicsKey := fmt.Sprintf("%s/tasks", logTaskConfig.ConsulKey)
 	for {
@@ -56,7 +51,7 @@ func main() {
 				}
 				taskPool.Join(w)
 			}
-		case <-done:
+		case <-termchan:
 			taskPool.Stop()
 			return
 		}
