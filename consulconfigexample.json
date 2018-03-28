@@ -1,0 +1,85 @@
+{
+    "LogSetting":{
+        "LogType":"rfc3164",
+        "TasksCount":200,
+        "Timezone":"Asia/Shanghai",
+        "TTL":"604800",
+        "Config":{
+            "DataSource":"NSQ",
+            "LookupdAddresses":"lookupd0:4161,lookupd1:4161",
+            "Topic":"syslog",
+            "Channel":"loganalyzer",
+            "StorageBackend":"Elastic",
+            "ElasticSearchEndPoint":"http://127.0.0.1:9200",
+            "LogSource":"syslog"
+        },
+        "DispatchKey":"tag",
+        "Proccessor": {
+            "default": {
+                "ProccesorType":"Bayes",
+                "WordSplitRegexp":"\\\\(|\\\\)|{|}|/",
+                "Tag":"content",
+                "BayesClassifierSetting":{
+                    "normal":["ps","total","received","normal","success","good","accepted","ok","size","found","list","ls","successful","git","md5","done","pwd","fg","match","start","saved","svn"],
+                    "error":["fail","etc","refused","droped","rm","bogus","not","passwd","password","reset","rm","drop","failed","err","refuse","error", "failures","Unable","Error","disabled","failure"]
+                }
+            },
+            "sudo": {
+                "ProccesorType":"Regexp",
+                "WordSplitRegexp":"\\\\(|\\\\)|{|}|/",
+                "Tag":"content",
+                "RegexpSetting":{
+                    "ignore":"(session (opened)|(closed))|(command continued)",
+                    "citical":"failed"
+                }
+            },
+            "CRON":{
+                "ProccesorType":"Regexp",
+                "WordSplitRegexp":"\\\\(|\\\\)|{|}|/",
+                "Tag":"content",
+                "RegexpSetting":{
+                    "ignore":"session (opened)|(closed)",
+                    "citical":"failed"
+                }
+            },
+            "kernel":{
+                "ProccesorType":"Regexp",
+                "WordSplitRegexp":"\\\\(|\\\\)|{|}|/",
+                "Tag":"content",
+                "RegexpSetting":{
+                    "ignore":"(martian source)|(ll header)",
+                    "citical":"failed"
+                }
+            },
+            "sshd":{
+                "ProccesorType":"Regexp",
+                "WordSplitRegexp":"\\\\(|\\\\)|{|}|/",
+                "Tag":"content",
+                "RegexpSetting":{
+                    "ignore":"(Set)|(Connection)|(Found)|(User child)|(Closing connection)|(Transferred)|(Received disconnect)",
+                    "citical":"failed"
+                }
+            }
+        },
+        "Tokens":["remoteAddr","-","remoteUser","timeLocal","requestMethod Uri HttpProto", "status", "bodyBytesSent","httpReferer","X","host","cookieUsertrack","requestTime","httpUserAgent","upstreamCacheStatus","cookieOs","CookieAppver","upstreamAddr","upstreamStatus","upstreamResponseTime"],
+        "TokenFormat": {
+            "remoteAddr":"string",
+            "remoteUser":"string",
+            "timeLocal":"string",
+            "requestMethod Uri HttpProto":"strings",
+            "status":"int",
+            "bodyBytesSent":"int",
+            "httpReferer":"string",
+            "host":"string",
+            "cookieUsertrack":"string",
+            "requestTime":"float",
+            "httpUserAgent":"string",
+            "upstreamCacheStatus":"string",
+            "cookieOs":"string",
+            "CookieAppver":"string",
+            "upstreamAddr":"string",
+            "upstreamStatus":"string",
+            "upstreamResponseTime":"string"
+        }
+    }
+}
