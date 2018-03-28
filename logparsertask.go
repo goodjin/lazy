@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"github.com/olivere/elastic"
@@ -98,7 +99,7 @@ func (t *LogParserTask) StartElastic() error {
 	ticker := time.Tick(time.Second * 60)
 	yy, mm, dd := time.Now().Date()
 	indexPatten := fmt.Sprintf("-%d.%d.%d", yy, mm, dd)
-	bulkProcessor, err := c.BulkProcessor().FlushInterval(10 * time.Second).Workers(t.LogConfig.TasksCount).After(t.afterFn).Do(nil)
+	bulkProcessor, err := c.BulkProcessor().FlushInterval(10 * time.Second).Workers(t.LogConfig.TasksCount).After(t.afterFn).Do(context.Background())
 	if err != nil {
 		log.Println("create elastic processor and start", err)
 		return err

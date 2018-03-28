@@ -16,11 +16,10 @@ var (
 
 func main() {
 	flag.Parse()
-	c, err := ReadConfig(*confFile)
+	logTaskConfig, err := ReadConfig(*confFile)
 	if err != nil {
 		log.Fatal("config parse error", err)
 	}
-	var logTaskConfig *LogTaskConfig
 	err = logTaskConfig.InitConfig()
 	if err != nil {
 		log.Fatal("failed to start pool error", err)
@@ -32,7 +31,7 @@ func main() {
 	for {
 		select {
 		case <-ticker:
-			topicsKey := fmt.Sprintf("%s/tasks", c.ConsulKey)
+			topicsKey := fmt.Sprintf("%s/tasks", logTaskConfig.ConsulKey)
 			tasksettings, err := logTaskConfig.ReadConfigFromConsul(topicsKey)
 			if err != nil {
 				log.Println(err)
@@ -43,6 +42,9 @@ func main() {
 					continue
 				}
 				w := NewLogParserTask(k, []byte(v))
+				if w == nil {
+					continue
+				}
 				if err = w.Start(); err != nil {
 					log.Println(k, v, err)
 				} else {

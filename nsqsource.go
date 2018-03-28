@@ -65,14 +65,17 @@ func (m *NSQReadTask) HandleMessage(msg *nsq.Message) error {
 			(*parsedLog)["timestamp"] = time.Now()
 		}
 	}
+	//define different proccessor based on dispatchkey's value
 	if value, ok := (*parsedLog)[m.logsetting.DispatchKey]; ok {
-		tag := m.logsetting.Proccessors[value.(string)].Tag
-		m.logsetting.Proccessors[value.(string)].Handler(parsedLog)
-		if (*parsedLog)[fmt.Sprintf("%s_RegexpCheck", tag)] == "ignore" {
-			return nil
-		}
-		if (*parsedLog)[fmt.Sprintf("%s_RegexpCheck", tag)] == "citical" {
-			fmt.Println(parsedLog)
+		if m.logsetting.Proccessors[value.(string)] != nil {
+			tag := m.logsetting.Proccessors[value.(string)].Tag
+			m.logsetting.Proccessors[value.(string)].Handler(parsedLog)
+			if (*parsedLog)[fmt.Sprintf("%s_RegexpCheck", tag)] == "ignore" {
+				return nil
+			}
+			if (*parsedLog)[fmt.Sprintf("%s_RegexpCheck", tag)] == "citical" {
+				fmt.Println(parsedLog)
+			}
 		}
 	}
 	if _, ok := m.logsetting.Proccessors["default"]; ok {

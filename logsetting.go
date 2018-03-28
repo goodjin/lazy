@@ -69,7 +69,6 @@ type LogSetting struct {
 	LogType     string            `json:"LogType"`
 	TasksCount  int               `json:"TasksCount"`
 	TimeZone    string            `json:"Timezone,omitempty"`
-	SplitRegexp string            `json:"SplitRegexp,omitempty"`
 	TTL         string            `json:"TTL"`
 	Config      map[string]string `json:"Config"`
 	Tokens      []string          `json:"Tokens,omitempty"`
