@@ -26,6 +26,7 @@ func (t *TaskPool) Join(w Worker) {
 func (t *TaskPool) IsStarted(id string) bool {
 	t.Lock()
 	if _, ok := t.workers[id]; !ok {
+		t.Unlock()
 		return false
 	}
 	t.Unlock()
