@@ -28,10 +28,10 @@ func main() {
 	termchan := make(chan os.Signal, 1)
 	signal.Notify(termchan, syscall.SIGINT, syscall.SIGTERM)
 	taskPool := NewTaskPool()
+	topicsKey := fmt.Sprintf("%s/tasks", logTaskConfig.ConsulKey)
 	for {
 		select {
 		case <-ticker:
-			topicsKey := fmt.Sprintf("%s/tasks", logTaskConfig.ConsulKey)
 			tasksettings, err := logTaskConfig.ReadConfigFromConsul(topicsKey)
 			if err != nil {
 				log.Println(err)
@@ -47,7 +47,6 @@ func main() {
 				}
 				if err = w.Start(); err != nil {
 					log.Println(k, v, err)
-				} else {
 					w.Stop()
 				}
 				taskPool.Join(w)
