@@ -13,8 +13,8 @@ import (
 // Proccesor support bayes or regexp match
 // support mutli regexp rules, set matchtag if it matchs
 // current matchtag is "ignore", "error", "critical", "warning"
-type Proccesor struct {
-	ProccesorType     string              `json:"ProccsorType"`
+type Processor struct {
+	ProccesorType     string              `json:"ProccesorType"`
 	Tag               string              `json:"Tag"`
 	RegexpSetting     map[string]string   `json:"RegexpSetting,omitempty"`
 	ClassifierSetting map[string][]string `json:"BayesClassifierSetting,omitempty"`
@@ -25,7 +25,7 @@ type Proccesor struct {
 	wordSplit         *regexp.Regexp
 }
 
-func (p *Proccesor) parseWords(msg string) []string {
+func (p *Processor) parseWords(msg string) []string {
 	var t []string
 	if p.wordSplit != nil {
 		t = strings.Split(p.wordSplit.ReplaceAllString(msg, " "), " ")
@@ -38,7 +38,7 @@ func (p *Proccesor) parseWords(msg string) []string {
 	}
 	return tokens
 }
-func (p *Proccesor) Handler(msg *map[string]interface{}) {
+func (p *Processor) Handler(msg *map[string]interface{}) {
 	message := (*msg)[p.Tag]
 	if p.ProccesorType == "Regexp" {
 		for k, e := range p.exps {
@@ -76,7 +76,7 @@ type LogSetting struct {
 	TokenFormat map[string]string `json:"TokenFormat,omitempty"`
 
 	DispatchKey string                `json:"DispatchKey,omitempty"`
-	Proccessors map[string]*Proccesor `json:"Proccessor,omitempty"`
+	Proccessors map[string]*Processor `json:"Proccessor,omitempty"`
 }
 
 func (l *LogSetting) SetRules() {
