@@ -95,6 +95,7 @@ func (l *LogSetting) SetRules() {
 			var classifierList []bayesian.Class
 			for k := range p.ClassifierSetting {
 				c := bayesian.Class(k)
+				p.classifiers = append(p.classifiers, k)
 				classifierList = append(classifierList, c)
 			}
 			p.c = bayesian.NewClassifier(classifierList...)
@@ -129,8 +130,10 @@ func (l *LogSetting) Parser(msg []byte) (*map[string]interface{}, error) {
 			tag = "misc"
 		}
 		data["tag"] = strings.Trim(tag, "-")
-	} else {
+	} else if l.LogType == "customschema" {
 		return l.wildFormat(generateLogTokens(msg))
+	} else {
+		return &data, fmt.Errorf("no parser support")
 	}
 	return &data, err
 }
