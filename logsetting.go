@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"github.com/jbrukh/bayesian"
 	"github.com/jeromer/syslogparser/rfc3164"
@@ -132,6 +133,18 @@ func (l *LogSetting) Parser(msg []byte) (*map[string]interface{}, error) {
 		data["tag"] = strings.Trim(tag, "-")
 	} else if l.LogType == "customschema" {
 		return l.wildFormat(generateLogTokens(msg))
+	} else if l.LogType == "keyvalue" {
+		var kv map[string]string
+		err := json.Unmarshal(msg, &kv)
+		if err == nil {
+			for k, v := range kv {
+				data[k] = v
+				if k == "timestamp" {
+					data["RawTimestamp"] = v
+				}
+			}
+			data["timestamp"] = time.Now()
+		}
 	} else {
 		return &data, fmt.Errorf("no parser support")
 	}
