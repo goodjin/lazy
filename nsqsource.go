@@ -55,7 +55,7 @@ func (m *NSQReadTask) HandleMessage(msg *nsq.Message) error {
 	}
 	parsedLog, err := m.logsetting.Parser(logmsg)
 	if err != nil && err.Error() == "no parser support" {
-		m.msgChan <- elastic.NewBulkIndexRequest().Doc(logmsg).Type(m.logsetting.LogType)
+		m.msgChan <- elastic.NewBulkIndexRequest().Doc(parsedLog).Type(m.logsetting.LogType)
 		return nil
 	}
 	if err != nil {

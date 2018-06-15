@@ -146,6 +146,8 @@ func (l *LogSetting) Parser(msg []byte) (*map[string]interface{}, error) {
 			data["timestamp"] = time.Now()
 		}
 	} else {
+		data["timestamp"] = time.Now()
+		data["rawmsg"] = string(msg)
 		return &data, fmt.Errorf("no parser support")
 	}
 	return &data, err
