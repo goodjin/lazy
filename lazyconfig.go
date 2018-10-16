@@ -7,7 +7,7 @@ import (
 	"os"
 )
 
-type LogTaskConfig struct {
+type LazyConfig struct {
 	ConsulAddress string `json:"ConsulAddress"`
 	Datacenter    string `json:"Datacenter"`
 	Token         string `json:"ConsulToken"`
@@ -16,21 +16,21 @@ type LogTaskConfig struct {
 }
 
 // ReadConfig used to read json to config
-func ReadConfig(file string) (*LogTaskConfig, error) {
+func ReadConfig(file string) (*LazyConfig, error) {
 	configFile, err := os.Open(file)
 	config, err := ioutil.ReadAll(configFile)
 	if err != nil {
 		return nil, err
 	}
 	configFile.Close()
-	setting := &LogTaskConfig{}
+	setting := &LazyConfig{}
 	if err := json.Unmarshal(config, setting); err != nil {
 		return nil, err
 	}
 	return setting, err
 }
 
-func (m *LogTaskConfig) InitConfig() error {
+func (m *LazyConfig) InitConfig() error {
 	config := api.DefaultConfig()
 	config.Address = m.ConsulAddress
 	config.Datacenter = m.Datacenter
@@ -40,7 +40,7 @@ func (m *LogTaskConfig) InitConfig() error {
 	return err
 }
 
-func (m *LogTaskConfig) ReadConfigFromConsul(key string) (map[string]string, error) {
+func (m *LazyConfig) ReadConfigFromConsul(key string) (map[string]string, error) {
 	consulSetting := make(map[string]string)
 	kv := m.client.KV()
 	pairs, _, err := kv.List(key, nil)
