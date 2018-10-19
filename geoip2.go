@@ -17,6 +17,8 @@ type GeoIP2Filter struct {
 	db          *geoip2.Reader
 }
 
+// todo add function to auto update database from remote addr
+// example: download from s3
 func NewGeoIP2Filter(config map[string]string) *GeoIP2Filter {
 	rf := &GeoIP2Filter{
 		TagToFilter: config["TagToFilter"],
