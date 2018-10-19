@@ -35,14 +35,16 @@ func main() {
 			tasksettings, err := logTaskConfig.ReadConfigFromConsul(topicsKey)
 			if err != nil {
 				log.Println(err)
+			} else {
+				taskPool.Cleanup(tasksettings)
 			}
-			taskPool.Cleanup(tasksettings)
 			for k, v := range tasksettings {
 				if taskPool.IsStarted(k) {
 					continue
 				}
-				w := NewLogParserTask(k, []byte(v))
-				if w == nil {
+				w, err := NewLogProccessTask(k, []byte(v))
+				if err != nil {
+					fmt.Println(err, v)
 					continue
 				}
 				if err = w.Start(); err != nil {

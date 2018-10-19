@@ -7,7 +7,7 @@ import (
 type Worker interface {
 	Stop()
 	DetailInfo() []byte
-	GetID() string
+	GetName() string
 }
 
 type TaskPool struct {
@@ -17,8 +17,8 @@ type TaskPool struct {
 
 func (t *TaskPool) Join(w Worker) {
 	t.Lock()
-	if _, ok := t.workers[w.GetID()]; !ok {
-		t.workers[w.GetID()] = w
+	if _, ok := t.workers[w.GetName()]; !ok {
+		t.workers[w.GetName()] = w
 	}
 	t.Unlock()
 }
