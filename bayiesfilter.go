@@ -10,14 +10,14 @@ import (
 
 // config json
 // {
-// "TagToFilter":"body",
+// "KeyToFilter":"body",
 // "WordSplitRegexp":"xxxx",
 // "Classifiers":"good,bad",
 // "good":"a,b,c",
 // "bad":"c,d,e",
 // }
 type BayiesFilter struct {
-	TagToFilter     string `json:"TagToFilter"`
+	KeyToFilter     string `json:"KeyToFilter"`
 	WordSplitRegexp string `json:"WordSplitRegexp,omitempty"`
 	wordSplit       *regexp.Regexp
 	c               *bayesian.Classifier
@@ -27,7 +27,7 @@ type BayiesFilter struct {
 
 func NewBayiesFilter(config map[string]string) *BayiesFilter {
 	bf := &BayiesFilter{
-		TagToFilter:     config["TagToFilter"],
+		KeyToFilter:     config["KeyToFilter"],
 		WordSplitRegexp: config["WordSplitRegexp"],
 	}
 	if len(bf.WordSplitRegexp) > 0 {
@@ -64,14 +64,14 @@ func (p *BayiesFilter) parseWords(msg string) []string {
 }
 
 func (p *BayiesFilter) Handle(msg *map[string]interface{}) (*map[string]interface{}, error) {
-	message := (*msg)[p.TagToFilter]
+	message := (*msg)[p.KeyToFilter]
 	if p.c == nil {
 		return msg, fmt.Errorf("no bayies config")
 	}
 	words := p.parseWords(message.(string))
 	_, likely, strict := p.c.LogScores(words)
 	if strict {
-		(*msg)[fmt.Sprintf("%s_BayesCheck", p.TagToFilter)] = p.classifiers[likely]
+		(*msg)[fmt.Sprintf("%s_BayesCheck", p.KeyToFilter)] = p.classifiers[likely]
 	}
 	filterState := p.statsd.NewCounter("bayiesfilter_ignore", 1.0)
 	filterState.Add(1)

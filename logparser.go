@@ -13,7 +13,6 @@ import (
 type LogParser struct {
 	LogType     string            `json:"LogType"`
 	TimeZone    string            `json:"Timezone,omitempty"`
-	IgnoreTags  []string          `json:"IgnoreTags,omitempty"`
 	Tokens      []string          `json:"Tokens,omitempty"`
 	TokenFormat map[string]string `json:"TokenFormat,omitempty"`
 	statsd      *statsd.Statsd

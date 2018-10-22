@@ -9,12 +9,12 @@ import (
 
 // config json
 // {
-// "TagToFilter":"syslogtag",
+// "KeyToFilter":"syslogtag",
 // "ipdb":"(.*)"
 // }
 
 type GeoIP2Filter struct {
-	TagToFilter string `json:"TagToFilter"`
+	KeyToFilter string `json:"KeyToFilter"`
 	db          *geoip2.Reader
 	statsd      *statsd.Statsd
 }
@@ -23,7 +23,7 @@ type GeoIP2Filter struct {
 // example: download from s3
 func NewGeoIP2Filter(config map[string]string) *GeoIP2Filter {
 	rf := &GeoIP2Filter{
-		TagToFilter: config["TagToFilter"],
+		KeyToFilter: config["KeyToFilter"],
 	}
 	var err error
 	rf.db, err = geoip2.Open(config["DataBase"])
@@ -57,7 +57,7 @@ func (geo *GeoIP2Filter) Cleanup() {
    },
 */
 func (geo *GeoIP2Filter) Handle(msg *map[string]interface{}) (*map[string]interface{}, error) {
-	message, ok := (*msg)[geo.TagToFilter].(string)
+	message, ok := (*msg)[geo.KeyToFilter].(string)
 	if !ok {
 		return msg, fmt.Errorf("bad data format, not a string")
 	}

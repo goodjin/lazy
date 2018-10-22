@@ -91,7 +91,7 @@ func NewLogProcessTask(name string, config []byte) (*LogProccessTask, error) {
 	logProcessTask.exitChan = make(chan int)
 	logProcessTask.Filters = make(map[string]Filter)
 	for k, v := range logProcessTask.FilterSettings {
-		switch k {
+		switch v["Type"] {
 		case "bayies":
 			logProcessTask.Filters[k] = NewBayiesFilter(v)
 		case "regexp":

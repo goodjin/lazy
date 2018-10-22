@@ -8,14 +8,16 @@ import (
 
 // config json
 // {
-// "TagToFilter":"syslogtag",
-// "a":"(.*)",
+// "KeyToFilter":"syslogtag",
+// "HashKey":"tag",
 // "b":"good,bad",
 // "ignore":"a,b,c",
 // }
 
 type RegexpFilter struct {
-	TagToFilter   string            `json:"TagToFilter"`
+	HashKey       string            `json:"HashKey"`
+	KeyToFilter   string            `json:"KeyToFilter"`
+	LabelName     string            `json:"LabelName"`
 	RegexpSetting map[string]string `json:"RegexpSetting,omitempty"`
 	regexpList    map[string]*regexp.Regexp
 	statsd        *statsd.Statsd
@@ -23,10 +25,15 @@ type RegexpFilter struct {
 
 func NewRegexpFilter(config map[string]string) *RegexpFilter {
 	rf := &RegexpFilter{
-		TagToFilter: config["TagToFilter"],
+		KeyToFilter: config["KeyToFilter"],
 	}
 	rf.RegexpSetting = make(map[string]string)
-	delete(config, "TagToFilter")
+	rf.HashKey = config["HashKey"]
+	rf.LabelName = config["LabelName"]
+	delete(config, "KeyToFilter")
+	delete(config, "HashKey")
+	delete(config, "Type")
+	delete(config, "LabelName")
 	rf.regexpList = make(map[string]*regexp.Regexp)
 	for k, v := range config {
 		rf.regexpList[k], _ = regexp.CompilePOSIX(v)
@@ -35,18 +42,23 @@ func NewRegexpFilter(config map[string]string) *RegexpFilter {
 }
 
 func (rf *RegexpFilter) Handle(msg *map[string]interface{}) (*map[string]interface{}, error) {
-	message := (*msg)[rf.TagToFilter]
-	filterState := rf.statsd.NewCounter("regexpfilter_count", 1.0)
+	message := (*msg)[rf.KeyToFilter]
+	filterState := rf.statsd.NewCounter(fmt.Sprintf("%s_%s_regexp_count", rf.HashKey, rf.KeyToFilter), 1.0)
 	filterState.Add(1)
-	for k, exp := range rf.regexpList {
-		if exp.MatchString(message.(string)) {
-			(*msg)[fmt.Sprintf("%s_RegexpCheck", rf.TagToFilter)] = k
-			if k == "ignore" {
-				filterignoreState := rf.statsd.NewCounter("regexpfilter_ignore", 1.0)
-				filterignoreState.Add(1)
-				return msg, fmt.Errorf("ignore")
-			}
+	var hashkey string
+	if value, ok := (*msg)[rf.HashKey]; ok {
+		if hashkey, ok = value.(string); !ok {
+			return msg, nil
 		}
+	} else {
+		hashkey = "default"
+	}
+	exp := rf.regexpList[hashkey]
+	if exp.MatchString(message.(string)) {
+		if rf.LabelName == "ignore" {
+			return msg, fmt.Errorf("ignore")
+		}
+		(*msg)[fmt.Sprintf("%s_%s_RegexpCheck", rf.HashKey, rf.KeyToFilter)] = rf.LabelName
 	}
 	return msg, nil
 }
