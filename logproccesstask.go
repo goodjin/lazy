@@ -99,6 +99,7 @@ func NewLogProcessTask(name string, config []byte) (*LogProccessTask, error) {
 		case "geoip2":
 			logProcessTask.Filters[k] = NewGeoIP2Filter(v)
 		}
+		logProcessTask.Filters[k].SetStatsd(logProcessTask.statsd)
 	}
 	var err error
 	switch logProcessTask.InputSetting["Type"] {
@@ -107,6 +108,7 @@ func NewLogProcessTask(name string, config []byte) (*LogProccessTask, error) {
 		if err != nil {
 			return nil, err
 		}
+		logProcessTask.Input.SetStatsd(logProcessTask.statsd)
 	//case "kafka":
 	//	logParserTask.Input = NewKafkaReader(logParserTask.InputSetting)
 	default:
@@ -118,9 +120,11 @@ func NewLogProcessTask(name string, config []byte) (*LogProccessTask, error) {
 		if err != nil {
 			return nil, err
 		}
+		logProcessTask.Output.SetStatsd(logProcessTask.statsd)
 	default:
 		return nil, fmt.Errorf("not supported sink")
 	}
+	logProcessTask.Parser.SetStatsd(logProcessTask.statsd)
 	return logProcessTask, nil
 }
 
