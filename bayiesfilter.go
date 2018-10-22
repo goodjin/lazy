@@ -25,11 +25,12 @@ type BayiesFilter struct {
 	classifiers     []string
 }
 
-func NewBayiesFilter(config map[string]string) *BayiesFilter {
+func NewBayiesFilter(config map[string]string, statsd *statsd.Statsd) *BayiesFilter {
 	bf := &BayiesFilter{
 		KeyToFilter:     config["KeyToFilter"],
 		WordSplitRegexp: config["WordSplitRegexp"],
 	}
+	bf.statsd = statsd
 	if len(bf.WordSplitRegexp) > 0 {
 		bf.wordSplit, _ = regexp.CompilePOSIX(bf.WordSplitRegexp)
 	}
@@ -78,7 +79,4 @@ func (p *BayiesFilter) Handle(msg *map[string]interface{}) (*map[string]interfac
 	return msg, nil
 }
 func (p *BayiesFilter) Cleanup() {
-}
-func (p *BayiesFilter) SetStatsd(statsd *statsd.Statsd) {
-	p.statsd = statsd
 }

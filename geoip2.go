@@ -21,10 +21,11 @@ type GeoIP2Filter struct {
 
 // todo add function to auto update database from remote addr
 // example: download from s3
-func NewGeoIP2Filter(config map[string]string) *GeoIP2Filter {
+func NewGeoIP2Filter(config map[string]string, statsd *statsd.Statsd) *GeoIP2Filter {
 	rf := &GeoIP2Filter{
 		KeyToFilter: config["KeyToFilter"],
 	}
+	rf.statsd = statsd
 	var err error
 	rf.db, err = geoip2.Open(config["DataBase"])
 	if err != nil {
@@ -85,8 +86,4 @@ func (geo *GeoIP2Filter) Handle(msg *map[string]interface{}) (*map[string]interf
 	rst["location"] = geoinfo
 	(*msg)["geoip"] = rst
 	return msg, nil
-}
-
-func (geo *GeoIP2Filter) SetStatsd(statsd *statsd.Statsd) {
-	geo.statsd = statsd
 }

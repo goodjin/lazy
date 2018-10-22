@@ -29,7 +29,7 @@ type NSQReader struct {
 	statsd    *statsd.Statsd
 }
 
-func NewNSQReader(config map[string]string) (*NSQReader, error) {
+func NewNSQReader(config map[string]string, statsd *statsd.Statsd) (*NSQReader, error) {
 	m := &NSQReader{}
 	m.msgChan = make(chan *[]byte)
 	m.msgFormat = config["MessageFormat"]
@@ -38,6 +38,7 @@ func NewNSQReader(config map[string]string) (*NSQReader, error) {
 	if err != nil {
 		log.Println(err)
 	}
+	m.statsd = statsd
 	cfg.Set("user_agent", fmt.Sprintf("%s/%s", config["Name"], hostname))
 	cfg.Set("snappy", true)
 	taskscount, err := strconv.Atoi(config["MaxInFlight"])
@@ -80,7 +81,4 @@ func (m *NSQReader) Stop() {
 }
 func (m *NSQReader) GetMsgChan() chan *[]byte {
 	return m.msgChan
-}
-func (m *NSQReader) SetStatsd(statsd *statsd.Statsd) {
-	m.statsd = statsd
 }

@@ -23,7 +23,7 @@ type RegexpFilter struct {
 	statsd        *statsd.Statsd
 }
 
-func NewRegexpFilter(config map[string]string) *RegexpFilter {
+func NewRegexpFilter(config map[string]string, statsd *statsd.Statsd) *RegexpFilter {
 	rf := &RegexpFilter{
 		KeyToFilter: config["KeyToFilter"],
 	}
@@ -38,6 +38,7 @@ func NewRegexpFilter(config map[string]string) *RegexpFilter {
 	for k, v := range config {
 		rf.regexpList[k], _ = regexp.CompilePOSIX(v)
 	}
+	rf.statsd = statsd
 	return rf
 }
 

@@ -43,19 +43,16 @@ type LogProccessTask struct {
 type Filter interface {
 	Handle(msg *map[string]interface{}) (*map[string]interface{}, error)
 	Cleanup()
-	SetStatsd(statsd *statsd.Statsd)
 }
 
 type DataSource interface {
 	Stop()
 	GetMsgChan() chan *[]byte
-	SetStatsd(statsd *statsd.Statsd)
 }
 
 type DataSink interface {
 	Stop()
 	Start(msgChan chan *map[string]interface{})
-	SetStatsd(statsd *statsd.Statsd)
 }
 
 func (t *LogProccessTask) Stop() {
@@ -89,6 +86,7 @@ func NewLogProcessTask(name string, config []byte) (*LogProccessTask, error) {
 	report := time.NewTicker(5 * time.Second)
 	defer report.Stop()
 	go logProcessTask.statsd.SendLoop(report.C, "udp", logProcessTask.StatsdAddr)
+	logProcessTask.Parser.SetStatsd(logProcessTask.statsd)
 	logProcessTask.configInfo = config
 	logProcessTask.Name = name
 	logProcessTask.exitChan = make(chan int)
@@ -96,22 +94,20 @@ func NewLogProcessTask(name string, config []byte) (*LogProccessTask, error) {
 	for k, v := range logProcessTask.FilterSettings {
 		switch v["Type"] {
 		case "bayies":
-			logProcessTask.Filters[k] = NewBayiesFilter(v)
+			logProcessTask.Filters[k] = NewBayiesFilter(v, logProcessTask.statsd)
 		case "regexp":
-			logProcessTask.Filters[k] = NewRegexpFilter(v)
+			logProcessTask.Filters[k] = NewRegexpFilter(v, logProcessTask.statsd)
 		case "geoip2":
-			logProcessTask.Filters[k] = NewGeoIP2Filter(v)
+			logProcessTask.Filters[k] = NewGeoIP2Filter(v, logProcessTask.statsd)
 		}
-		logProcessTask.Filters[k].SetStatsd(logProcessTask.statsd)
 	}
 	var err error
 	switch logProcessTask.InputSetting["Type"] {
 	case "nsq":
-		logProcessTask.Input, err = NewNSQReader(logProcessTask.InputSetting)
+		logProcessTask.Input, err = NewNSQReader(logProcessTask.InputSetting, logProcessTask.statsd)
 		if err != nil {
 			return nil, err
 		}
-		logProcessTask.Input.SetStatsd(logProcessTask.statsd)
 	//case "kafka":
 	//	logParserTask.Input = NewKafkaReader(logParserTask.InputSetting)
 	default:
@@ -119,15 +115,13 @@ func NewLogProcessTask(name string, config []byte) (*LogProccessTask, error) {
 	}
 	switch logProcessTask.OutputSetting["Type"] {
 	case "elasticsearch":
-		logProcessTask.Output, err = NewElasitcSearchWriter(logProcessTask.InputSetting)
+		logProcessTask.Output, err = NewElasitcSearchWriter(logProcessTask.InputSetting, logProcessTask.statsd)
 		if err != nil {
 			return nil, err
 		}
-		logProcessTask.Output.SetStatsd(logProcessTask.statsd)
 	default:
 		return nil, fmt.Errorf("not supported sink")
 	}
-	logProcessTask.Parser.SetStatsd(logProcessTask.statsd)
 	return logProcessTask, nil
 }
 

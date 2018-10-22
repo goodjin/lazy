@@ -28,7 +28,7 @@ type ElasticSearchWriter struct {
 	exitChan      chan int
 }
 
-func NewElasitcSearchWriter(config map[string]string) (*ElasticSearchWriter, error) {
+func NewElasitcSearchWriter(config map[string]string, statsd *statsd.Statsd) (*ElasticSearchWriter, error) {
 	hosts := strings.Split(config["ElasticSearchEndPoint"], ",")
 	client, err := elastic.NewClient(elastic.SetURL(hosts...))
 	if err != nil {
@@ -36,6 +36,7 @@ func NewElasitcSearchWriter(config map[string]string) (*ElasticSearchWriter, err
 		return nil, err
 	}
 	es := &ElasticSearchWriter{IndexPerfix: config["IndexPerfix"]}
+	es.statsd = statsd
 	es.tasksCount, err = strconv.Atoi(config["TaskCount"])
 	if err != nil {
 		es.tasksCount = 5
