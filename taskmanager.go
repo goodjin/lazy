@@ -42,7 +42,7 @@ func (t *TaskPool) Cleanup(list map[string]string) {
 			delete(t.workers, k)
 		}
 		if config != string(v.DetailInfo()) {
-			if v.IsGoodConfig([]byte(list[k])) {
+			if v.IsGoodConfig([]byte(config)) {
 				v.Stop()
 				delete(t.workers, k)
 			}
