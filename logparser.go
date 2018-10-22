@@ -32,6 +32,8 @@ func (l *LogParser) Handle(msg *[]byte) (*map[string]interface{}, error) {
 		if err == nil {
 			p.Location(location)
 		}
+		logState := l.statsd.NewCounter("rfc3163log", 1.0)
+		logState.Add(1)
 		if err = p.Parse(); err != nil {
 			data["content"] = string(*msg)
 			data["timestamp"] = time.Now()
@@ -47,6 +49,8 @@ func (l *LogParser) Handle(msg *[]byte) (*map[string]interface{}, error) {
 		}
 		data["tag"] = strings.Trim(tag, "-")
 	case "customschema":
+		logState := l.statsd.NewCounter("customschemalog", 1.0)
+		logState.Add(1)
 		return l.wildFormat(generateLogTokens(*msg))
 	case "keyvalue":
 		var kv map[string]string
@@ -60,7 +64,11 @@ func (l *LogParser) Handle(msg *[]byte) (*map[string]interface{}, error) {
 			}
 			data["timestamp"] = time.Now()
 		}
+		logState := l.statsd.NewCounter("keyvaluelog", 1.0)
+		logState.Add(1)
 	default:
+		logState := l.statsd.NewCounter("unknowlog", 1.0)
+		logState.Add(1)
 		data["timestamp"] = time.Now()
 		data["rawmsg"] = string(*msg)
 		return &data, fmt.Errorf("no parser support")

@@ -69,6 +69,8 @@ func (m *NSQReader) HandleMessage(msg *nsq.Message) error {
 	default:
 		logmsg = msg.Body
 	}
+	dataState := m.statsd.NewCounter("nsq_msg_count", 1.0)
+	dataState.Add(1)
 	m.msgChan <- &logmsg
 	return nil
 }

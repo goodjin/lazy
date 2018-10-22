@@ -36,10 +36,14 @@ func NewRegexpFilter(config map[string]string) *RegexpFilter {
 
 func (rf *RegexpFilter) Handle(msg *map[string]interface{}) (*map[string]interface{}, error) {
 	message := (*msg)[rf.TagToFilter]
+	filterState := rf.statsd.NewCounter("regexpfilter_count", 1.0)
+	filterState.Add(1)
 	for k, exp := range rf.regexpList {
 		if exp.MatchString(message.(string)) {
 			(*msg)[fmt.Sprintf("%s_RegexpCheck", rf.TagToFilter)] = k
 			if k == "ignore" {
+				filterignoreState := rf.statsd.NewCounter("regexpfilter_ignore", 1.0)
+				filterignoreState.Add(1)
 				return msg, fmt.Errorf("ignore")
 			}
 		}

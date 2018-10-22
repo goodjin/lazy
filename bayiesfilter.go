@@ -73,6 +73,8 @@ func (p *BayiesFilter) Handle(msg *map[string]interface{}) (*map[string]interfac
 	if strict {
 		(*msg)[fmt.Sprintf("%s_BayesCheck", p.TagToFilter)] = p.classifiers[likely]
 	}
+	filterState := p.statsd.NewCounter("bayiesfilter_ignore", 1.0)
+	filterState.Add(1)
 	return msg, nil
 }
 func (p *BayiesFilter) Cleanup() {

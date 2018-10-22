@@ -47,7 +47,9 @@ func NewElasitcSearchWriter(config map[string]string) (*ElasticSearchWriter, err
 
 func (es *ElasticSearchWriter) afterFn(executionID int64, requests []elastic.BulkableRequest, response *elastic.BulkResponse, err error) {
 	if err != nil {
+		dataState := es.statsd.NewCounter("elasticsearch_msg_failed", 1.0)
 		for _, request := range requests {
+			dataState.Add(1)
 			es.bulkProcessor.Add(request)
 		}
 	}
@@ -67,6 +69,8 @@ func (es *ElasticSearchWriter) Start(dataChan chan *map[string]interface{}) {
 				yy, mm, dd := time.Now().Date()
 				indexName = fmt.Sprintf("%s-%d.%d.%d", es.IndexPerfix, yy, mm, dd)
 			case msg := <-dataChan:
+				dataState := es.statsd.NewCounter("elasticsearch_msg_count", 1.0)
+				dataState.Add(1)
 				indexObject := elastic.NewBulkIndexRequest().Doc(msg).Type(es.Type)
 				es.bulkProcessor.Add(indexObject.Index(indexName))
 			case <-es.exitChan:
