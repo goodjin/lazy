@@ -47,10 +47,7 @@ func main() {
 					fmt.Println(err, v)
 					continue
 				}
-				if err = w.Start(); err != nil {
-					log.Println(k, v, err)
-					w.Stop()
-				}
+				go w.Run()
 				taskPool.Join(w)
 				fmt.Println(k, " is started")
 			}

@@ -125,7 +125,7 @@ func NewLogProcessTask(name string, config []byte) (*LogProccessTask, error) {
 	return logProcessTask, nil
 }
 
-func (t *LogProccessTask) Start() error {
+func (t *LogProccessTask) Run() {
 	msgChan := t.Input.GetMsgChan()
 	parsedMsgChan := make(chan *map[string]interface{})
 	t.Output.Start(parsedMsgChan)
@@ -151,7 +151,7 @@ func (t *LogProccessTask) Start() error {
 			}
 			parsedMsgChan <- rst
 		case <-t.exitChan:
-			return nil
+			return
 		}
 	}
 }
