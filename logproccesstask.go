@@ -21,17 +21,20 @@ import (
 // }
 
 type LogProccessTask struct {
-	Name           string
-	InputSetting   map[string]string            `json:"Input"`
-	Parser         *LogParser                   `json:"LogParser"`
-	OutputSetting  map[string]string            `json:"Output"`
+	Name          string
+	InputSetting  map[string]string `json:"Input"`
+	Parser        *LogParser        `json:"LogParser"`
+	OutputSetting map[string]string `json:"Output"`
+	// filter settting
 	FilterOrder    []string                     `json:"FilterOrder,omitempty"`
 	FilterSettings map[string]map[string]string `json:"FilterSettings"`
 	Filters        map[string]Filter
-	StatsdAddr     string `json:"StatsdAddr"`
-	statsd         *statsd.Statsd
-	Input          DataSource
-	Output         DataSink
+	// statsd
+	StatsdAddr string `json:"StatsdAddr"`
+	statsd     *statsd.Statsd
+
+	Input  DataSource
+	Output DataSink
 	sync.Mutex
 	configInfo []byte
 	exitChan   chan int
@@ -157,4 +160,12 @@ func (t *LogProccessTask) Start() error {
 			return nil
 		}
 	}
+}
+
+func (t *LogProccessTask) IsGoodConfig(config []byte) bool {
+	logProcessTask := &LogProccessTask{}
+	if err := json.Unmarshal(config, logProcessTask); err != nil {
+		return false
+	}
+	return true
 }

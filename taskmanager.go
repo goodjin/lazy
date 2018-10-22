@@ -8,6 +8,7 @@ type Worker interface {
 	Stop()
 	DetailInfo() []byte
 	GetName() string
+	IsGoodConfig(config []byte) bool
 }
 
 type TaskPool struct {
@@ -35,12 +36,17 @@ func (t *TaskPool) IsStarted(id string) bool {
 func (t *TaskPool) Cleanup(list map[string]string) {
 	t.Lock()
 	for k, v := range t.workers {
-		config := list[k]
-		if string(v.DetailInfo()) == config {
-			continue
+		config, ok := list[k]
+		if !ok {
+			v.Stop()
+			delete(t.workers, k)
 		}
-		v.Stop()
-		delete(t.workers, k)
+		if config != string(v.DetailInfo()) {
+			if v.IsGoodConfig([]byte(list[k])) {
+				v.Stop()
+				delete(t.workers, k)
+			}
+		}
 	}
 	t.Unlock()
 }

@@ -43,8 +43,6 @@ func NewRegexpFilter(config map[string]string) *RegexpFilter {
 
 func (rf *RegexpFilter) Handle(msg *map[string]interface{}) (*map[string]interface{}, error) {
 	message := (*msg)[rf.KeyToFilter]
-	filterState := rf.statsd.NewCounter(fmt.Sprintf("%s_%s_regexp_count", rf.HashKey, rf.KeyToFilter), 1.0)
-	filterState.Add(1)
 	var hashkey string
 	if value, ok := (*msg)[rf.HashKey]; ok {
 		if hashkey, ok = value.(string); !ok {
@@ -53,12 +51,15 @@ func (rf *RegexpFilter) Handle(msg *map[string]interface{}) (*map[string]interfa
 	} else {
 		hashkey = "default"
 	}
-	exp := rf.regexpList[hashkey]
-	if exp.MatchString(message.(string)) {
-		if rf.LabelName == "ignore" {
-			return msg, fmt.Errorf("ignore")
+	if exp, ok := rf.regexpList[hashkey]; ok {
+		filterState := rf.statsd.NewCounter(fmt.Sprintf("%s_%s_regexp_count", rf.HashKey, rf.KeyToFilter), 1.0)
+		filterState.Add(1)
+		if exp.MatchString(message.(string)) {
+			if rf.LabelName == "ignore" {
+				return msg, fmt.Errorf("ignore")
+			}
+			(*msg)[fmt.Sprintf("%s_%s_RegexpCheck", rf.HashKey, rf.KeyToFilter)] = rf.LabelName
 		}
-		(*msg)[fmt.Sprintf("%s_%s_RegexpCheck", rf.HashKey, rf.KeyToFilter)] = rf.LabelName
 	}
 	return msg, nil
 }
