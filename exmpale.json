@@ -1,0 +1,98 @@
+{
+    "Input": {
+        "Type":"nsq",
+        "MessageFormat":"protobuf",
+        "Name":"syslogreader",
+        "MaxInFlight":"200",
+        "Topic":"syslog",
+        "Channel":"loganalyzer",
+        "LookupdAddresses":"lookupd0:4161,lookupd1:4161"
+    },
+    "OutPut":{
+        "Type":"elasticsearch",
+        "IndexPerfix":"nginxlog",
+        "TaskCount":"20",
+        "IndexType":"customschema",
+        "ElasticSearchEndPoint":"http://127.0.0.1:9200"
+    },
+    "LogParser": {
+        "LogType":"customschema",
+        "Timezone":"Asia/Shanghai",
+        "Tokens":["RemoteAddr",
+                  "-",
+                  "RemoteUser",
+                  "TimeLocal",
+                  "RequestMethod Uri HttpProto",
+                  "Status",
+                  "BodyBytesSent",
+                  "HttpReferer",
+                  "X",
+                  "Host",
+                  "CookieUsertrack",
+                  "RequestTime",
+                  "UpstreamResponseTime",
+                  "UpstreamAddr",
+                  "HttpUserAgent",
+                  "XForwardedFor",
+                  "XRequestedWith",
+                  "XRequestedUser"
+                  ],
+        "TokenFormat":{
+            "RemoteAddr":"string",
+            "RemoteUser":"string",
+            "TimeLocal":"string",
+            "RequestMethod Uri HttpProto":"strings",
+            "Status":"int",
+            "BodyBytesSent":"int",
+            "Host":"string",
+            "HttpReferer":"string",
+            "RequestTime":"float",
+            "UpstreamResponseTime":"string",
+            "HttpUserAgent":"string",
+            "XForwardedFor":"string",
+            "UpstreamAddr":"string",
+            "CookieUsertrack":"string",
+            "XForwardedFor":"string",
+            "XRequestedWith":"string",
+            "XRequestedUser":"string"
+        }
+    },
+    "FilterOrder":["ignoremsg","tagmsg", "bayiestag","geoip2"],
+    "FilterSettings":{
+        "ignoremsg": {
+            "Type":"regexp",
+            "HashKey":"tag",
+            "KeyToFilter":"content",
+            "bash":"(\\+ \\?\\?\\? root:)|(nobody by root)|(for user nobody)",
+            "su":"(\\+ \\?\\?\\? root:)|(nobody by root)|(for user nobody)|(root by root)",
+            "sudo":"(session (opened)|(closed))|(command continued)",
+            "systemd":"((Reached)|(Stopped) target)|(GnuPG cryptographic)|(of nobody)|(for UID 65534)|(user nobody)|(Received SIGRTMIN)|(Starting user)|(Starting Exit the Session)",
+            "misc":"(srZAdd)|(INFO)|(FOStorm)|(clickfeedback)|(newsInter)|(mpAdd)|(TUPLE)|(Emitting)|(host_link)|(tuple)|(come in)|(dspResoncode)|(length:38)",
+            "CRON":"session (opened)|(closed)",
+            "kernel":"(martian source)|(ll header)|(Shorewall:sfilter:DROP",
+            "sshd":"(Set)|(Connection)|(Found)|(User child)|(Closing connection)|(Transferred)|(Received disconnect)",
+            "LabelName":"ignore"
+        },
+        "tagmsg": {
+            "Type":"regexp",
+            "HashKey":"tag",
+            "KeyToFilter":"content",
+            "bash":"(useradd)|(userdel)|(passwd)",
+            "LabelName":"critical"
+        },
+        "bayiestag":{
+            "Type":"bayies",
+            "KeyToFilter":"content",
+            "WordSplitRegexp":"\\\\(|\\\\)|{|}|/",
+            "Classifiers":"normal,error",
+            "normal":"ps,total,received,normal,success,good,accepted,ok,size,found,list,ls,successful,git,md5,done,pwd,fg,match,start,saved,svn",
+            "error":"fail,erc,refuesed,droped,rm,bogus,not,passwd,password,reset,rm,err,error,Unable,Error,disabled,failure"
+        },
+        "geoip2":{
+            "Type":"geoip2",
+            "KeyToFilter":"remoteAddr",
+            "DataBase":"./GeoIP2-City.mmdb"
+        }
+    },
+    "StatsdAddr":"127.0.0.1:8200"
+}

@@ -58,11 +58,11 @@ func (geo *GeoIP2Filter) Cleanup() {
    },
 */
 func (geo *GeoIP2Filter) Handle(msg *map[string]interface{}) (*map[string]interface{}, error) {
-	message, ok := (*msg)[geo.KeyToFilter].(string)
+	ipaddr, ok := (*msg)[geo.KeyToFilter].(string)
 	if !ok {
 		return msg, fmt.Errorf("bad data format, not a string")
 	}
-	ip := net.ParseIP(message)
+	ip := net.ParseIP(ipaddr)
 	record, err := geo.db.City(ip)
 	if err != nil {
 		return msg, err
@@ -74,7 +74,7 @@ func (geo *GeoIP2Filter) Handle(msg *map[string]interface{}) (*map[string]interf
 	rst["country_name"] = record.Country.Names["en"]
 	rst["country_code2"] = record.RepresentedCountry.IsoCode
 	rst["country_code3"] = record.RegisteredCountry.IsoCode
-	rst["ip"] = message
+	rst["ip"] = ipaddr
 	rst["continent_code"] = record.Continent.Code
 	rst["timezone"] = record.Location.TimeZone
 	rst["latitude"] = record.Location.Latitude
