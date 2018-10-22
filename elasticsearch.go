@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"github.com/go-kit/kit/metrics/statsd"
 	"github.com/olivere/elastic"
 	"log"
 	"strconv"
@@ -23,6 +24,7 @@ type ElasticSearchWriter struct {
 	Type          string
 	bulkProcessor *elastic.BulkProcessor
 	dataChan      chan *map[string]interface{}
+	statsd        *statsd.Statsd
 	exitChan      chan int
 }
 
@@ -91,4 +93,7 @@ func (es *ElasticSearchWriter) Stats() map[string]int64 {
 		rst[fmt.Sprintf("worker%d_queued", i)] = w.Queued
 	}
 	return rst
+}
+func (es *ElasticSearchWriter) SetStatsd(statsd *statsd.Statsd) {
+	es.statsd = statsd
 }

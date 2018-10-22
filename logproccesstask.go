@@ -3,8 +3,12 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	kitlog "github.com/go-kit/kit/log"
+	"github.com/go-kit/kit/metrics/statsd"
 	"log"
+	"os"
 	"sync"
+	"time"
 )
 
 // config json
@@ -24,6 +28,8 @@ type LogProccessTask struct {
 	FilterOrder    []string                     `json:"FilterOrder,omitempty"`
 	FilterSettings map[string]map[string]string `json:"FilterSettings"`
 	Filters        map[string]Filter
+	StatsdAddr     string `json:"StatsdAddr"`
+	statsd         *statsd.Statsd
 	Input          DataSource
 	Output         DataSink
 	sync.Mutex
@@ -34,16 +40,19 @@ type LogProccessTask struct {
 type Filter interface {
 	Handle(msg *map[string]interface{}) (*map[string]interface{}, error)
 	Cleanup()
+	SetStatsd(statsd *statsd.Statsd)
 }
 
 type DataSource interface {
 	Stop()
 	GetMsgChan() chan *[]byte
+	SetStatsd(statsd *statsd.Statsd)
 }
 
 type DataSink interface {
 	Stop()
 	Start(msgChan chan *map[string]interface{})
+	SetStatsd(statsd *statsd.Statsd)
 }
 
 func (t *LogProccessTask) Stop() {
@@ -63,30 +72,38 @@ func (t *LogProccessTask) DetailInfo() []byte {
 	return t.configInfo
 }
 
-func NewLogProccessTask(name string, config []byte) (*LogProccessTask, error) {
-	logParserTask := &LogProccessTask{}
-	if err := json.Unmarshal(config, logParserTask); err != nil {
+func NewLogProcessTask(name string, config []byte) (*LogProccessTask, error) {
+	logProcessTask := &LogProccessTask{}
+	if err := json.Unmarshal(config, logProcessTask); err != nil {
 		log.Println("bad task config", err)
 		return nil, fmt.Errorf("bad task config")
 	}
-	logParserTask.configInfo = config
-	logParserTask.Name = name
-	logParserTask.exitChan = make(chan int)
-	logParserTask.Filters = make(map[string]Filter)
-	for k, v := range logParserTask.FilterSettings {
+	if logProcessTask.StatsdAddr == "" {
+		logProcessTask.StatsdAddr = "127.0.0.1:8210"
+	}
+	logger := kitlog.NewJSONLogger(kitlog.NewSyncWriter(os.Stdout))
+	logProcessTask.statsd = statsd.New("lazy.", logger)
+	report := time.NewTicker(5 * time.Second)
+	defer report.Stop()
+	go logProcessTask.statsd.SendLoop(report.C, "udp", logProcessTask.StatsdAddr)
+	logProcessTask.configInfo = config
+	logProcessTask.Name = name
+	logProcessTask.exitChan = make(chan int)
+	logProcessTask.Filters = make(map[string]Filter)
+	for k, v := range logProcessTask.FilterSettings {
 		switch k {
 		case "bayies":
-			logParserTask.Filters[k] = NewBayiesFilter(v)
+			logProcessTask.Filters[k] = NewBayiesFilter(v)
 		case "regexp":
-			logParserTask.Filters[k] = NewRegexpFilter(v)
+			logProcessTask.Filters[k] = NewRegexpFilter(v)
 		case "geoip2":
-			logParserTask.Filters[k] = NewGeoIP2Filter(v)
+			logProcessTask.Filters[k] = NewGeoIP2Filter(v)
 		}
 	}
 	var err error
-	switch logParserTask.InputSetting["Type"] {
+	switch logProcessTask.InputSetting["Type"] {
 	case "nsq":
-		logParserTask.Input, err = NewNSQReader(logParserTask.InputSetting)
+		logProcessTask.Input, err = NewNSQReader(logProcessTask.InputSetting)
 		if err != nil {
 			return nil, err
 		}
@@ -95,16 +112,16 @@ func NewLogProccessTask(name string, config []byte) (*LogProccessTask, error) {
 	default:
 		return nil, fmt.Errorf("not supported data source")
 	}
-	switch logParserTask.OutputSetting["Type"] {
+	switch logProcessTask.OutputSetting["Type"] {
 	case "elasticsearch":
-		logParserTask.Output, err = NewElasitcSearchWriter(logParserTask.InputSetting)
+		logProcessTask.Output, err = NewElasitcSearchWriter(logProcessTask.InputSetting)
 		if err != nil {
 			return nil, err
 		}
 	default:
 		return nil, fmt.Errorf("not supported sink")
 	}
-	return logParserTask, nil
+	return logProcessTask, nil
 }
 
 func (t *LogProccessTask) Start() error {

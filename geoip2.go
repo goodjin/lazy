@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"github.com/go-kit/kit/metrics/statsd"
 	"github.com/oschwald/geoip2-golang"
 	"net"
 )
@@ -15,6 +16,7 @@ import (
 type GeoIP2Filter struct {
 	TagToFilter string `json:"TagToFilter"`
 	db          *geoip2.Reader
+	statsd      *statsd.Statsd
 }
 
 // todo add function to auto update database from remote addr
@@ -83,4 +85,8 @@ func (geo *GeoIP2Filter) Handle(msg *map[string]interface{}) (*map[string]interf
 	rst["location"] = geoinfo
 	(*msg)["geoip"] = rst
 	return msg, nil
+}
+
+func (geo *GeoIP2Filter) SetStatsd(statsd *statsd.Statsd) {
+	geo.statsd = statsd
 }

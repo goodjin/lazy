@@ -42,7 +42,7 @@ func main() {
 				if taskPool.IsStarted(k) {
 					continue
 				}
-				w, err := NewLogProccessTask(k, []byte(v))
+				w, err := NewLogProcessTask(k, []byte(v))
 				if err != nil {
 					fmt.Println(err, v)
 					continue

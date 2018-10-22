@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"github.com/go-kit/kit/metrics/statsd"
 	"github.com/golang/protobuf/proto"
 	"github.com/nsqio/go-nsq"
 	"log"
@@ -25,6 +26,7 @@ type NSQReader struct {
 	consumer  *nsq.Consumer
 	msgFormat string
 	msgChan   chan *[]byte
+	statsd    *statsd.Statsd
 }
 
 func NewNSQReader(config map[string]string) (*NSQReader, error) {
@@ -76,4 +78,7 @@ func (m *NSQReader) Stop() {
 }
 func (m *NSQReader) GetMsgChan() chan *[]byte {
 	return m.msgChan
+}
+func (m *NSQReader) SetStatsd(statsd *statsd.Statsd) {
+	m.statsd = statsd
 }

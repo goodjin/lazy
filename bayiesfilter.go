@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"github.com/go-kit/kit/metrics/statsd"
 	"github.com/jbrukh/bayesian"
 	"regexp"
 	"strings"
@@ -20,6 +21,7 @@ type BayiesFilter struct {
 	WordSplitRegexp string `json:"WordSplitRegexp,omitempty"`
 	wordSplit       *regexp.Regexp
 	c               *bayesian.Classifier
+	statsd          *statsd.Statsd
 	classifiers     []string
 }
 
@@ -74,4 +76,7 @@ func (p *BayiesFilter) Handle(msg *map[string]interface{}) (*map[string]interfac
 	return msg, nil
 }
 func (p *BayiesFilter) Cleanup() {
+}
+func (p *BayiesFilter) SetStatsd(statsd *statsd.Statsd) {
+	p.statsd = statsd
 }

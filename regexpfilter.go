@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"github.com/go-kit/kit/metrics/statsd"
 	"regexp"
 )
 
@@ -17,6 +18,7 @@ type RegexpFilter struct {
 	TagToFilter   string            `json:"TagToFilter"`
 	RegexpSetting map[string]string `json:"RegexpSetting,omitempty"`
 	regexpList    map[string]*regexp.Regexp
+	statsd        *statsd.Statsd
 }
 
 func NewRegexpFilter(config map[string]string) *RegexpFilter {
@@ -46,4 +48,7 @@ func (rf *RegexpFilter) Handle(msg *map[string]interface{}) (*map[string]interfa
 }
 
 func (rf *RegexpFilter) Cleanup() {
+}
+func (rf *RegexpFilter) SetStatsd(statsd *statsd.Statsd) {
+	rf.statsd = statsd
 }
