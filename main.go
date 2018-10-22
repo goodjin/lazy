@@ -52,6 +52,7 @@ func main() {
 					w.Stop()
 				}
 				taskPool.Join(w)
+				fmt.Println(k, " is started")
 			}
 		case <-termchan:
 			taskPool.Stop()

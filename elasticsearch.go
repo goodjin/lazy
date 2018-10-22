@@ -35,6 +35,7 @@ func NewElasitcSearchWriter(config map[string]string, statsd *statsd.Statsd) (*E
 		log.Println("create elastic client", err)
 		return nil, err
 	}
+	fmt.Println("Start elasticsearch writer")
 	es := &ElasticSearchWriter{IndexPerfix: config["IndexPerfix"]}
 	es.statsd = statsd
 	es.tasksCount, err = strconv.Atoi(config["TaskCount"])

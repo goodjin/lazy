@@ -50,6 +50,7 @@ func NewNSQReader(config map[string]string, statsd *statsd.Statsd) (*NSQReader, 
 	m.consumer.AddConcurrentHandlers(m, taskscount)
 	lookupds := strings.Split(config["LookupdAddresses"], ",")
 	err = m.consumer.ConnectToNSQLookupds(lookupds)
+	fmt.Println( config["Name"], "nsq reader is started")
 	return m, err
 }
 

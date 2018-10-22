@@ -115,7 +115,7 @@ func NewLogProcessTask(name string, config []byte) (*LogProccessTask, error) {
 	}
 	switch logProcessTask.OutputSetting["Type"] {
 	case "elasticsearch":
-		logProcessTask.Output, err = NewElasitcSearchWriter(logProcessTask.InputSetting, logProcessTask.statsd)
+		logProcessTask.Output, err = NewElasitcSearchWriter(logProcessTask.OutputSetting, logProcessTask.statsd)
 		if err != nil {
 			return nil, err
 		}
