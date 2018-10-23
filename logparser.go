@@ -110,6 +110,7 @@ func (l *LogParser) wildFormat(msgTokens []string) (*map[string]interface{}, err
 			}
 		}
 	}
+	data["timestamp"] = time.Now()
 	return &data, nil
 }
 
