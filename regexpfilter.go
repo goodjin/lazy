@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"github.com/go-kit/kit/metrics/statsd"
 	"regexp"
 )
 
@@ -20,10 +19,9 @@ type RegexpFilter struct {
 	LabelName     string            `json:"LabelName"`
 	RegexpSetting map[string]string `json:"RegexpSetting,omitempty"`
 	regexpList    map[string]*regexp.Regexp
-	statsd        *statsd.Statsd
 }
 
-func NewRegexpFilter(config map[string]string, statsd *statsd.Statsd) *RegexpFilter {
+func NewRegexpFilter(config map[string]string) *RegexpFilter {
 	rf := &RegexpFilter{
 		KeyToFilter: config["KeyToFilter"],
 	}
@@ -43,7 +41,6 @@ func NewRegexpFilter(config map[string]string, statsd *statsd.Statsd) *RegexpFil
 			fmt.Println(k, v, err)
 		}
 	}
-	rf.statsd = statsd
 	return rf
 }
 
@@ -58,8 +55,6 @@ func (rf *RegexpFilter) Handle(msg *map[string]interface{}) (*map[string]interfa
 		hashkey = "default"
 	}
 	if exp, ok := rf.regexpList[hashkey]; ok {
-		filterState := rf.statsd.NewCounter(fmt.Sprintf("%s_%s_regexp_count", rf.HashKey, rf.KeyToFilter), 1.0)
-		filterState.Add(1)
 		if exp.MatchString(message.(string)) {
 			if rf.LabelName == "ignore" {
 				return msg, fmt.Errorf("ignore")
@@ -71,7 +66,4 @@ func (rf *RegexpFilter) Handle(msg *map[string]interface{}) (*map[string]interfa
 }
 
 func (rf *RegexpFilter) Cleanup() {
-}
-func (rf *RegexpFilter) SetStatsd(statsd *statsd.Statsd) {
-	rf.statsd = statsd
 }

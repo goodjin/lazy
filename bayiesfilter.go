@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"github.com/go-kit/kit/metrics/statsd"
 	"github.com/jbrukh/bayesian"
 	"regexp"
 	"strings"
@@ -21,16 +20,14 @@ type BayiesFilter struct {
 	WordSplitRegexp string `json:"WordSplitRegexp,omitempty"`
 	wordSplit       *regexp.Regexp
 	c               *bayesian.Classifier
-	statsd          *statsd.Statsd
 	classifiers     []string
 }
 
-func NewBayiesFilter(config map[string]string, statsd *statsd.Statsd) *BayiesFilter {
+func NewBayiesFilter(config map[string]string) *BayiesFilter {
 	bf := &BayiesFilter{
 		KeyToFilter:     config["KeyToFilter"],
 		WordSplitRegexp: config["WordSplitRegexp"],
 	}
-	bf.statsd = statsd
 	if len(bf.WordSplitRegexp) > 0 {
 		bf.wordSplit, _ = regexp.CompilePOSIX(bf.WordSplitRegexp)
 	}
@@ -74,8 +71,6 @@ func (p *BayiesFilter) Handle(msg *map[string]interface{}) (*map[string]interfac
 	if strict {
 		(*msg)[fmt.Sprintf("%s_BayesCheck", p.KeyToFilter)] = p.classifiers[likely]
 	}
-	filterState := p.statsd.NewCounter("bayiesfilter_ignore", 1.0)
-	filterState.Add(1)
 	return msg, nil
 }
 func (p *BayiesFilter) Cleanup() {

@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"github.com/go-kit/kit/metrics/statsd"
 	"github.com/golang/protobuf/proto"
 	"github.com/nsqio/go-nsq"
 	"log"
@@ -26,10 +25,9 @@ type NSQReader struct {
 	consumer  *nsq.Consumer
 	msgFormat string
 	msgChan   chan *[]byte
-	statsd    *statsd.Statsd
 }
 
-func NewNSQReader(config map[string]string, statsd *statsd.Statsd) (*NSQReader, error) {
+func NewNSQReader(config map[string]string) (*NSQReader, error) {
 	m := &NSQReader{}
 	m.msgChan = make(chan *[]byte)
 	m.msgFormat = config["MessageFormat"]
@@ -38,7 +36,6 @@ func NewNSQReader(config map[string]string, statsd *statsd.Statsd) (*NSQReader, 
 	if err != nil {
 		log.Println(err)
 	}
-	m.statsd = statsd
 	cfg.Set("user_agent", fmt.Sprintf("%s/%s", config["Name"], hostname))
 	cfg.Set("snappy", true)
 	taskscount, err := strconv.Atoi(config["MaxInFlight"])
@@ -71,8 +68,6 @@ func (m *NSQReader) HandleMessage(msg *nsq.Message) error {
 	default:
 		logmsg = msg.Body
 	}
-	dataState := m.statsd.NewCounter("nsq_msg_count", 1.0)
-	dataState.Add(1)
 	m.msgChan <- &logmsg
 	return nil
 }

@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"github.com/go-kit/kit/metrics/statsd"
 	"github.com/oschwald/geoip2-golang"
 	"net"
 )
@@ -16,16 +15,14 @@ import (
 type GeoIP2Filter struct {
 	KeyToFilter string `json:"KeyToFilter"`
 	db          *geoip2.Reader
-	statsd      *statsd.Statsd
 }
 
 // todo add function to auto update database from remote addr
 // example: download from s3
-func NewGeoIP2Filter(config map[string]string, statsd *statsd.Statsd) *GeoIP2Filter {
+func NewGeoIP2Filter(config map[string]string) *GeoIP2Filter {
 	rf := &GeoIP2Filter{
 		KeyToFilter: config["KeyToFilter"],
 	}
-	rf.statsd = statsd
 	var err error
 	rf.db, err = geoip2.Open(config["DataBase"])
 	if err != nil {

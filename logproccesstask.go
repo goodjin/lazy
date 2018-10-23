@@ -3,10 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	kitlog "github.com/go-kit/kit/log"
-	"github.com/go-kit/kit/metrics/statsd"
 	"log"
-	"os"
 	"sync"
 	"time"
 )
@@ -29,9 +26,6 @@ type LogProccessTask struct {
 	FilterOrder    []string                     `json:"FilterOrder,omitempty"`
 	FilterSettings map[string]map[string]string `json:"FilterSettings"`
 	Filters        map[string]Filter
-	// statsd
-	StatsdAddr string `json:"StatsdAddr"`
-	statsd     *statsd.Statsd
 
 	Input  DataSource
 	Output DataSink
@@ -79,15 +73,6 @@ func NewLogProcessTask(name string, config []byte) (*LogProccessTask, error) {
 		log.Println("bad task config", err)
 		return nil, fmt.Errorf("bad task config")
 	}
-	if logProcessTask.StatsdAddr == "" {
-		logProcessTask.StatsdAddr = "127.0.0.1:8210"
-	}
-	logger := kitlog.NewJSONLogger(kitlog.NewSyncWriter(os.Stdout))
-	logProcessTask.statsd = statsd.New("lazy.", logger)
-	report := time.NewTicker(5 * time.Second)
-	defer report.Stop()
-	go logProcessTask.statsd.SendLoop(report.C, "udp", logProcessTask.StatsdAddr)
-	logProcessTask.Parser.SetStatsd(logProcessTask.statsd)
 	logProcessTask.configInfo = config
 	logProcessTask.Name = name
 	logProcessTask.exitChan = make(chan int)
@@ -95,17 +80,17 @@ func NewLogProcessTask(name string, config []byte) (*LogProccessTask, error) {
 	for k, v := range logProcessTask.FilterSettings {
 		switch v["Type"] {
 		case "bayies":
-			logProcessTask.Filters[k] = NewBayiesFilter(v, logProcessTask.statsd)
+			logProcessTask.Filters[k] = NewBayiesFilter(v)
 		case "regexp":
-			logProcessTask.Filters[k] = NewRegexpFilter(v, logProcessTask.statsd)
+			logProcessTask.Filters[k] = NewRegexpFilter(v)
 		case "geoip2":
-			logProcessTask.Filters[k] = NewGeoIP2Filter(v, logProcessTask.statsd)
+			logProcessTask.Filters[k] = NewGeoIP2Filter(v)
 		}
 	}
 	var err error
 	switch logProcessTask.InputSetting["Type"] {
 	case "nsq":
-		logProcessTask.Input, err = NewNSQReader(logProcessTask.InputSetting, logProcessTask.statsd)
+		logProcessTask.Input, err = NewNSQReader(logProcessTask.InputSetting)
 		if err != nil {
 			return nil, err
 		}
@@ -116,7 +101,7 @@ func NewLogProcessTask(name string, config []byte) (*LogProccessTask, error) {
 	}
 	switch logProcessTask.OutputSetting["Type"] {
 	case "elasticsearch":
-		logProcessTask.Output, err = NewElasitcSearchWriter(logProcessTask.OutputSetting, logProcessTask.statsd)
+		logProcessTask.Output, err = NewElasitcSearchWriter(logProcessTask.OutputSetting)
 		if err != nil {
 			return nil, err
 		}

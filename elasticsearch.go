@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"github.com/go-kit/kit/metrics/statsd"
 	"github.com/olivere/elastic"
 	"log"
 	"strconv"
@@ -24,11 +23,10 @@ type ElasticSearchWriter struct {
 	Type          string
 	bulkProcessor *elastic.BulkProcessor
 	dataChan      chan *map[string]interface{}
-	statsd        *statsd.Statsd
 	exitChan      chan int
 }
 
-func NewElasitcSearchWriter(config map[string]string, statsd *statsd.Statsd) (*ElasticSearchWriter, error) {
+func NewElasitcSearchWriter(config map[string]string) (*ElasticSearchWriter, error) {
 	hosts := strings.Split(config["ElasticSearchEndPoint"], ",")
 	client, err := elastic.NewClient(elastic.SetURL(hosts...))
 	if err != nil {
@@ -37,7 +35,6 @@ func NewElasitcSearchWriter(config map[string]string, statsd *statsd.Statsd) (*E
 	}
 	fmt.Println("Start elasticsearch writer")
 	es := &ElasticSearchWriter{IndexPerfix: config["IndexPerfix"]}
-	es.statsd = statsd
 	es.tasksCount, err = strconv.Atoi(config["TaskCount"])
 	if err != nil {
 		es.tasksCount = 5
@@ -50,9 +47,7 @@ func NewElasitcSearchWriter(config map[string]string, statsd *statsd.Statsd) (*E
 
 func (es *ElasticSearchWriter) afterFn(executionID int64, requests []elastic.BulkableRequest, response *elastic.BulkResponse, err error) {
 	if err != nil {
-		dataState := es.statsd.NewCounter("elasticsearch_msg_failed", 1.0)
 		for _, request := range requests {
-			dataState.Add(1)
 			es.bulkProcessor.Add(request)
 		}
 	}
@@ -72,8 +67,6 @@ func (es *ElasticSearchWriter) Start(dataChan chan *map[string]interface{}) {
 				yy, mm, dd := time.Now().Date()
 				indexName = fmt.Sprintf("%s-%d.%d.%d", es.IndexPerfix, yy, mm, dd)
 			case msg := <-dataChan:
-				dataState := es.statsd.NewCounter("elasticsearch_msg_count", 1.0)
-				dataState.Add(1)
 				indexObject := elastic.NewBulkIndexRequest().Doc(msg).Type(es.Type)
 				es.bulkProcessor.Add(indexObject.Index(indexName))
 			case <-es.exitChan:
@@ -100,7 +93,4 @@ func (es *ElasticSearchWriter) Stats() map[string]int64 {
 		rst[fmt.Sprintf("worker%d_queued", i)] = w.Queued
 	}
 	return rst
-}
-func (es *ElasticSearchWriter) SetStatsd(statsd *statsd.Statsd) {
-	es.statsd = statsd
 }
