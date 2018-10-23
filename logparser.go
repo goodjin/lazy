@@ -3,7 +3,6 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/go-kit/kit/metrics/statsd"
 	"github.com/jeromer/syslogparser/rfc3164"
 	"strconv"
 	"strings"
@@ -15,12 +14,8 @@ type LogParser struct {
 	TimeZone    string            `json:"Timezone,omitempty"`
 	Tokens      []string          `json:"Tokens,omitempty"`
 	TokenFormat map[string]string `json:"TokenFormat,omitempty"`
-	statsd      *statsd.Statsd
 }
 
-func (l *LogParser) SetStatsd(statsd *statsd.Statsd) {
-	l.statsd = statsd
-}
 func (l *LogParser) Handle(msg *[]byte) (*map[string]interface{}, error) {
 	data := make(map[string]interface{})
 	var err error
@@ -31,8 +26,6 @@ func (l *LogParser) Handle(msg *[]byte) (*map[string]interface{}, error) {
 		if err == nil {
 			p.Location(location)
 		}
-		logState := l.statsd.NewCounter("rfc3163log", 1.0)
-		logState.Add(1)
 		if err = p.Parse(); err != nil {
 			data["content"] = string(*msg)
 			data["timestamp"] = time.Now()
@@ -48,8 +41,6 @@ func (l *LogParser) Handle(msg *[]byte) (*map[string]interface{}, error) {
 		}
 		data["tag"] = strings.Trim(tag, "-")
 	case "customschema":
-		logState := l.statsd.NewCounter("customschemalog", 1.0)
-		logState.Add(1)
 		return l.wildFormat(generateLogTokens(*msg))
 	case "keyvalue":
 		var kv map[string]string
@@ -63,11 +54,7 @@ func (l *LogParser) Handle(msg *[]byte) (*map[string]interface{}, error) {
 			}
 			data["timestamp"] = time.Now()
 		}
-		logState := l.statsd.NewCounter("keyvaluelog", 1.0)
-		logState.Add(1)
 	default:
-		logState := l.statsd.NewCounter("unknowlog", 1.0)
-		logState.Add(1)
 		data["timestamp"] = time.Now()
 		data["rawmsg"] = string(*msg)
 		return &data, fmt.Errorf("no parser support")
