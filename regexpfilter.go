@@ -35,8 +35,13 @@ func NewRegexpFilter(config map[string]string, statsd *statsd.Statsd) *RegexpFil
 	delete(config, "Type")
 	delete(config, "LabelName")
 	rf.regexpList = make(map[string]*regexp.Regexp)
+	var err error
 	for k, v := range config {
-		rf.regexpList[k], _ = regexp.CompilePOSIX(v)
+		rf.regexpList[k], err = regexp.CompilePOSIX(v)
+		if err != nil {
+			delete(rf.regexpList, k)
+			fmt.Println(k, v, err)
+		}
 	}
 	rf.statsd = statsd
 	return rf

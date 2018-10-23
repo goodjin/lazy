@@ -42,6 +42,7 @@ func NewElasitcSearchWriter(config map[string]string, statsd *statsd.Statsd) (*E
 	if err != nil {
 		es.tasksCount = 5
 	}
+	es.exitChan = make(chan int)
 	es.Type = config["IndexType"]
 	es.bulkProcessor, err = client.BulkProcessor().FlushInterval(10 * time.Second).Workers(es.tasksCount).After(es.afterFn).Stats(true).Do(context.Background())
 	return es, err
