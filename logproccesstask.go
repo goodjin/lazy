@@ -57,10 +57,11 @@ type DataSink interface {
 
 func (t *LogProccessTask) Stop() {
 	t.Input.Stop()
-	t.Output.Stop()
 	for _, f := range t.Filters {
 		f.Cleanup()
 	}
+	time.Sleep(10 * time.Second)
+	t.Output.Stop()
 	close(t.exitChan)
 }
 
