@@ -55,7 +55,6 @@ func (t *LogProccessTask) Stop() {
 	for _, f := range t.Filters {
 		f.Cleanup()
 	}
-	time.Sleep(10 * time.Second)
 	t.Output.Stop()
 }
 
