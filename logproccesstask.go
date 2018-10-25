@@ -120,19 +120,18 @@ func (t *LogProccessTask) Run() {
 			rst, err := t.Parser.Handle(msg)
 			if err != nil {
 				log.Println(string(*msg), err)
-				continue
+				break
 			}
 			for _, name := range t.FilterOrder {
 				if f, ok := t.Filters[name]; ok {
 					rst, err = f.Handle(rst)
-					if err != nil && err.Error() != "ignore" {
+					if err != nil && err.Error() == "ignore" {
 						break
 					}
 				}
 			}
 			if err != nil {
-				log.Println(string(*msg), err)
-				continue
+				break
 			}
 			parsedMsgChan <- rst
 		case <-t.exitChan:
