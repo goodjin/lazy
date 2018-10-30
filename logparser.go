@@ -62,13 +62,13 @@ func (l *LogParser) Handle(msg *[]byte) (*map[string]interface{}, error) {
 	return &data, err
 }
 
-func (l *LogParser) wildFormat(msgTokens []string) (*map[string]interface{}, error) {
+func (l *LogParser) wildFormat(msgTokens *[]string) (*map[string]interface{}, error) {
 	data := make(map[string]interface{})
-	if len(l.Tokens) != len(msgTokens) {
-		return &data, fmt.Errorf("log format error: %s %s", l.Tokens, msgTokens)
+	if len(l.Tokens) != len(*msgTokens) {
+		return &data, fmt.Errorf("log format error: %s %s", l.Tokens, *msgTokens)
 	}
 	for i, token := range l.Tokens {
-		tk := msgTokens[i]
+		tk := (*msgTokens)[i]
 		if format, ok := l.TokenFormat[token]; ok {
 			switch format {
 			case "int":
@@ -92,16 +92,24 @@ func (l *LogParser) wildFormat(msgTokens []string) (*map[string]interface{}, err
 					return &data, fmt.Errorf("data format err: %s %s", tk, format)
 				}
 				data[token] = t
+			case "nginxtimestamp":
+				var err error
+				data[token], err = time.Parse("02/Jan/2006:15:04:05 -0700", tk)
+				if err != nil {
+					return &data, fmt.Errorf("data format err: %s %s", tk, format)
+				}
 			default:
 				data[token] = tk
 			}
 		}
 	}
-	data["timestamp"] = time.Now()
+	if _, ok := data["timestamp"]; !ok {
+		data["timestamp"] = time.Now()
+	}
 	return &data, nil
 }
 
-func generateLogTokens(buf []byte) []string {
+func generateLogTokens(buf []byte) *[]string {
 	var tokens []string
 	var token []byte
 	var lastChar byte
@@ -152,5 +160,5 @@ func generateLogTokens(buf []byte) []string {
 			token = append(token, v)
 		}
 	}
-	return tokens
+	return &tokens
 }
