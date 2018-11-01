@@ -97,8 +97,11 @@ func NewLogProcessTask(name string, config []byte) (*LogProccessTask, error) {
 		if err != nil {
 			return nil, err
 		}
-	//case "kafka":
-	//	logParserTask.Input = NewKafkaReader(logParserTask.InputSetting)
+	case "kafka":
+		logProcessTask.Input, err = NewKafkaReader(logProcessTask.InputSetting)
+		if err != nil {
+			return nil, err
+		}
 	default:
 		return nil, fmt.Errorf("not supported data source")
 	}
