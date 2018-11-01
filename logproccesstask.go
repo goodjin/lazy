@@ -92,6 +92,11 @@ func NewLogProcessTask(name string, config []byte) (*LogProccessTask, error) {
 		if err != nil {
 			return nil, err
 		}
+	case "file":
+		logProcessTask.Input, err = NewFileReader(logProcessTask.InputSetting)
+		if err != nil {
+			return nil, err
+		}
 	//case "kafka":
 	//	logParserTask.Input = NewKafkaReader(logParserTask.InputSetting)
 	default:
