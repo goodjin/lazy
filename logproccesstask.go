@@ -40,7 +40,7 @@ type Filter interface {
 
 type DataSource interface {
 	Stop()
-	GetMsgChan() chan *[]byte
+	GetMsgChan() chan *map[string][]byte
 }
 
 type DataSink interface {
@@ -118,7 +118,7 @@ func (t *LogProccessTask) Run() {
 		case msg := <-msgChan:
 			rst, err := t.Parser.Handle(msg)
 			if err != nil {
-				log.Println(string(*msg), err)
+				log.Println(string(string((*msg)["msg"])), err)
 				break
 			}
 			for _, name := range t.FilterOrder {

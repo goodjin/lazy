@@ -16,18 +16,18 @@ type LogParser struct {
 	TokenFormat map[string]string `json:"TokenFormat,omitempty"`
 }
 
-func (l *LogParser) Handle(msg *[]byte) (*map[string]interface{}, error) {
+func (l *LogParser) Handle(msg *map[string][]byte) (*map[string]interface{}, error) {
 	data := make(map[string]interface{})
 	var err error
 	switch l.LogType {
 	case "rfc3164":
-		p := rfc3164.NewParser(*msg)
+		p := rfc3164.NewParser((*msg)["msg"])
 		location, err := time.LoadLocation(l.TimeZone)
 		if err == nil {
 			p.Location(location)
 		}
 		if err = p.Parse(); err != nil {
-			data["content"] = string(*msg)
+			data["content"] = string((*msg)["msg"])
 			data["timestamp"] = time.Now()
 			return &data, nil
 		}
@@ -40,11 +40,12 @@ func (l *LogParser) Handle(msg *[]byte) (*map[string]interface{}, error) {
 			tag = "misc"
 		}
 		data["tag"] = strings.Trim(tag, "-")
+		data["from"] = string((*msg)["from"])
 	case "customschema":
-		return l.wildFormat(generateLogTokens(*msg))
+		return l.wildFormat(generateLogTokens((*msg)["msg"]))
 	case "keyvalue":
 		var kv map[string]string
-		err := json.Unmarshal(*msg, &kv)
+		err := json.Unmarshal((*msg)["msg"], &kv)
 		if err == nil {
 			for k, v := range kv {
 				data[k] = v
@@ -56,7 +57,7 @@ func (l *LogParser) Handle(msg *[]byte) (*map[string]interface{}, error) {
 		}
 	default:
 		data["timestamp"] = time.Now()
-		data["rawmsg"] = string(*msg)
+		data["rawmsg"] = string((*msg)["msg"])
 		return &data, fmt.Errorf("no parser support")
 	}
 	return &data, err

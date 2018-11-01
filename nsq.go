@@ -24,12 +24,12 @@ import (
 type NSQReader struct {
 	consumer  *nsq.Consumer
 	msgFormat string
-	msgChan   chan *[]byte
+	msgChan   chan *map[string][]byte
 }
 
 func NewNSQReader(config map[string]string) (*NSQReader, error) {
 	m := &NSQReader{}
-	m.msgChan = make(chan *[]byte)
+	m.msgChan = make(chan *map[string][]byte)
 	m.msgFormat = config["MessageFormat"]
 	cfg := nsq.NewConfig()
 	hostname, err := os.Hostname()
@@ -53,7 +53,7 @@ func NewNSQReader(config map[string]string) (*NSQReader, error) {
 
 func (m *NSQReader) HandleMessage(msg *nsq.Message) error {
 	var logFormat LogFormat
-	var logmsg []byte
+	logmsg := make(map[string][]byte)
 	switch m.msgFormat {
 	case "protobuf":
 		err := proto.Unmarshal(msg.Body, &logFormat)
@@ -61,12 +61,13 @@ func (m *NSQReader) HandleMessage(msg *nsq.Message) error {
 			log.Println("proto unmarshal", err, string(msg.Body))
 			return nil
 		}
-		logmsg = []byte(logFormat.GetRawmsg())
+		logmsg["msg"] = []byte(logFormat.GetRawmsg())
+		logmsg["from"] = []byte(logFormat.GetFrom())
 		if len(logmsg) < 1 {
 			return nil
 		}
 	default:
-		logmsg = msg.Body
+		logmsg["msg"] = msg.Body
 	}
 	m.msgChan <- &logmsg
 	return nil
@@ -75,6 +76,6 @@ func (m *NSQReader) HandleMessage(msg *nsq.Message) error {
 func (m *NSQReader) Stop() {
 	m.consumer.Stop()
 }
-func (m *NSQReader) GetMsgChan() chan *[]byte {
+func (m *NSQReader) GetMsgChan() chan *map[string][]byte {
 	return m.msgChan
 }
