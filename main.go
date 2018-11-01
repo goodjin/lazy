@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"runtime"
 	"syscall"
 	"time"
 )
@@ -29,6 +30,10 @@ func main() {
 	signal.Notify(termchan, syscall.SIGINT, syscall.SIGTERM)
 	taskPool := NewTaskPool()
 	topicsKey := fmt.Sprintf("%s/tasks", logTaskConfig.ConsulKey)
+	taskParallel := runtime.NumCPU() / 2
+	if taskParallel < 2 {
+		taskParallel = 2
+	}
 	for {
 		select {
 		case <-ticker:
@@ -47,7 +52,9 @@ func main() {
 					fmt.Println(err, v)
 					continue
 				}
-				go w.Run()
+				for i := 0; i < taskParallel; i++ {
+					go w.Run()
+				}
 				taskPool.Join(w)
 				fmt.Println(k, " is started")
 			}
