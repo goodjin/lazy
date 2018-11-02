@@ -1,60 +1,72 @@
 package main
 
 import (
-	"fmt"
-	"github.com/Shopify/sarama"
+	cluster "github.com/bsm/sarama-cluster"
+	"log"
 	"strings"
 )
 
 // config
 // {
-// "FileName":"./xxx",
-// "ReadAll":"true",
-// "Type":"file"
+// "KafkaAddresses":"127.0.0.1:9200,172.17.0.1:9200",
+// "Topic":"xxx",
+// "Type":"kafka"
 // }
 
 type KafkaReader struct {
-	consumer          sarama.Consumer
-	partitionConsumer []sarama.PartitionConsumer
-	exitChan          chan int
-	msgChan           chan *map[string][]byte
+	consumer *cluster.Consumer
+	exitChan chan int
+	msgChan  chan *map[string][]byte
 }
 
 func NewKafkaReader(config map[string]string) (*KafkaReader, error) {
 	m := &KafkaReader{}
 	m.msgChan = make(chan *map[string][]byte)
 	m.exitChan = make(chan int)
-	addrs := strings.Split(config["KafkaAddresses"], ",")
+	brokers := strings.Split(config["KafkaBrokers"], ",")
+	topics := strings.Split(config["Topics"], ",")
+	kafkaconfig := cluster.NewConfig()
+	kafkaconfig.Consumer.Return.Errors = true
+	kafkaconfig.Group.Return.Notifications = true
 	var err error
-	m.consumer, err = sarama.NewConsumer(addrs, nil)
-	if err != nil {
-		return m, err
-	}
-	partitions, err := m.consumer.Partitions(config["Topic"])
-	for index, patition := range partitions {
-		m.partitionConsumer[index], err = m.consumer.ConsumePartition(config["Topic"], patition, sarama.OffsetNewest)
-		partitionConsumer := m.partitionConsumer[index]
-		go func() {
-			logmsg := make(map[string][]byte)
-			for {
-				select {
-				case msg := <-partitionConsumer.Messages():
-					logmsg["msg"] = msg.Value
-					m.msgChan <- &logmsg
-				case <-m.exitChan:
-					return
-				}
-			}
-		}()
-	}
+	m.consumer, err = cluster.NewConsumer(brokers, config["ConsumerGroup"], topics, kafkaconfig)
+	go m.ReadLoop()
+	log.Println("start consumer for topic", config["Topics"])
 	return m, err
+}
+
+func (m *KafkaReader) ReadLoop() {
+	// consume errors
+	go func() {
+		for err := range m.consumer.Errors() {
+			log.Printf("Error: %s\n", err.Error())
+		}
+	}()
+
+	// consume notifications
+	go func() {
+		for ntf := range m.consumer.Notifications() {
+			log.Printf("Rebalanced: %+v\n", ntf)
+		}
+	}()
+
+	logmsg := make(map[string][]byte)
+	for {
+		select {
+		case msg, ok := <-m.consumer.Messages():
+			if ok {
+				logmsg["msg"] = msg.Value
+				m.msgChan <- &logmsg
+				m.consumer.MarkOffset(msg, "")
+			}
+		case <-m.exitChan:
+			return
+		}
+	}
 }
 
 func (m *KafkaReader) Stop() {
 	close(m.exitChan)
-	for _, v := range m.partitionConsumer {
-		v.Close()
-	}
 	m.consumer.Close()
 }
 func (m *KafkaReader) GetMsgChan() chan *map[string][]byte {
