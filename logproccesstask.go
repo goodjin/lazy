@@ -142,9 +142,6 @@ func (t *LogProccessTask) Run() {
 					}
 				}
 			}
-			if err != nil {
-				break
-			}
 			parsedMsgChan <- rst
 		case <-t.exitChan:
 			return
