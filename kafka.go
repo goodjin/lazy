@@ -1,9 +1,12 @@
 package main
 
 import (
+	"fmt"
+	"github.com/Shopify/sarama"
 	cluster "github.com/bsm/sarama-cluster"
 	"log"
 	"strings"
+	"time"
 )
 
 // config
@@ -71,4 +74,48 @@ func (m *KafkaReader) Stop() {
 }
 func (m *KafkaReader) GetMsgChan() chan *map[string][]byte {
 	return m.msgChan
+}
+
+// config
+// {
+// "Topic":"xxxx",
+// "KafkaAddresses":"127.0.0.1:9200,172.17.0.1:9200",
+// "Type":"kafka"
+// }
+
+type KafkaWriter struct {
+	producer sarama.AsyncProducer
+	Topic    string
+	exitChan chan int
+}
+
+func NewKafkaWriter(config map[string]string) (*KafkaWriter, error) {
+	kafkaWriter := &KafkaWriter{}
+	kafkaWriter.Topic = config["Topic"]
+	kafkaWriter.exitChan = make(chan int)
+	var err error
+	kafkaConfig := sarama.NewConfig()
+	kafkaConfig.Producer.RequiredAcks = sarama.WaitForLocal       // Only wait for the leader to ack
+	kafkaConfig.Producer.Compression = sarama.CompressionSnappy   // Compress messages
+	kafkaConfig.Producer.Flush.Frequency = 500 * time.Millisecond // Flush batches every 500ms
+	kafkaWriter.producer, err = sarama.NewAsyncProducer(strings.Split(config["KafkaAddresses"], ","), kafkaConfig)
+	return kafkaWriter, err
+}
+
+func (kafkaWriter *KafkaWriter) Stop() {
+	kafkaWriter.producer.Close()
+	close(kafkaWriter.exitChan)
+}
+
+func (kafkaWriter *KafkaWriter) Start(dataChan chan *map[string]interface{}) {
+	for {
+		select {
+		case <-kafkaWriter.exitChan:
+			return
+		case logmsg := <-dataChan:
+			kafkaWriter.producer.Input() <- &sarama.ProducerMessage{Topic: kafkaWriter.Topic, Key: nil, Value: sarama.StringEncoder((*logmsg)["rawmsg"].(string))}
+		case err := <-kafkaWriter.producer.Errors():
+			fmt.Println(err.Err)
+		}
+	}
 }

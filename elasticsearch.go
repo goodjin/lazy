@@ -22,7 +22,6 @@ type ElasticSearchWriter struct {
 	tasksCount    int
 	Type          string
 	bulkProcessor *elastic.BulkProcessor
-	dataChan      chan *map[string]interface{}
 	exitChan      chan int
 }
 
@@ -60,22 +59,20 @@ func (es *ElasticSearchWriter) Start(dataChan chan *map[string]interface{}) {
 	ticker := time.Tick(time.Second * 60)
 	yy, mm, dd := time.Now().Date()
 	indexName := fmt.Sprintf("%s-%d.%d.%d", es.IndexPerfix, yy, mm, dd)
-	go func() {
-		for {
-			select {
-			case <-ticker:
-				yy, mm, dd := time.Now().Date()
-				indexName = fmt.Sprintf("%s-%d.%d.%d", es.IndexPerfix, yy, mm, dd)
-			case msg := <-dataChan:
-				indexObject := elastic.NewBulkIndexRequest().Doc(msg).Type(es.Type)
-				es.bulkProcessor.Add(indexObject.Index(indexName))
-			case <-es.exitChan:
-				es.bulkProcessor.Stop()
-				log.Println("exit elasticsearch")
-				return
-			}
+	for {
+		select {
+		case <-ticker:
+			yy, mm, dd := time.Now().Date()
+			indexName = fmt.Sprintf("%s-%d.%d.%d", es.IndexPerfix, yy, mm, dd)
+		case msg := <-dataChan:
+			indexObject := elastic.NewBulkIndexRequest().Doc(msg).Type(es.Type)
+			es.bulkProcessor.Add(indexObject.Index(indexName))
+		case <-es.exitChan:
+			es.bulkProcessor.Stop()
+			log.Println("exit elasticsearch")
+			return
 		}
-	}()
+	}
 }
 
 func (es *ElasticSearchWriter) Stats() map[string]int64 {

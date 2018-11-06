@@ -111,6 +111,11 @@ func NewLogProcessTask(name string, config []byte) (*LogProccessTask, error) {
 		if err != nil {
 			return nil, err
 		}
+	case "kafka":
+		logProcessTask.Output, err = NewKafkaWriter(logProcessTask.OutputSetting)
+		if err != nil {
+			return nil, err
+		}
 	default:
 		return nil, fmt.Errorf("not supported sink")
 	}
@@ -120,13 +125,13 @@ func NewLogProcessTask(name string, config []byte) (*LogProccessTask, error) {
 func (t *LogProccessTask) Run() {
 	msgChan := t.Input.GetMsgChan()
 	parsedMsgChan := make(chan *map[string]interface{})
-	t.Output.Start(parsedMsgChan)
+	go t.Output.Start(parsedMsgChan)
 	for {
 		select {
 		case msg := <-msgChan:
 			rst, err := t.Parser.Handle(msg)
 			if err != nil {
-				log.Println(string(string((*msg)["msg"])), err)
+				log.Println(string((*msg)["msg"]), err)
 				break
 			}
 			for _, name := range t.FilterOrder {
