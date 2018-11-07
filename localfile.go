@@ -55,9 +55,9 @@ func NewFileReader(config map[string]string) (*FileReader, error) {
 }
 
 func (m *FileReader) ReadLoop() {
-	logmsg := make(map[string][]byte)
 	reader := bufio.NewReader(m.fd)
 	for {
+		logmsg := make(map[string][]byte)
 		select {
 		case <-m.exitChan:
 			return
