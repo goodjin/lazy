@@ -115,7 +115,9 @@ func (kafkaWriter *KafkaWriter) Start(dataChan chan *map[string]interface{}) {
 		case logmsg := <-dataChan:
 			kafkaWriter.producer.Input() <- &sarama.ProducerMessage{Topic: kafkaWriter.Topic, Key: nil, Value: sarama.StringEncoder((*logmsg)["rawmsg"].(string))}
 		case err := <-kafkaWriter.producer.Errors():
-			fmt.Println(err)
+			if err != nil {
+				fmt.Println(err)
+			}
 		}
 	}
 }
