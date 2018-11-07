@@ -58,7 +58,7 @@ func (l *LogParser) Handle(msg *map[string][]byte) (*map[string]interface{}, err
 	default:
 		data["timestamp"] = time.Now()
 		data["rawmsg"] = string((*msg)["msg"])
-		return &data, fmt.Errorf("no parser support")
+		return &data, nil
 	}
 	return &data, err
 }
