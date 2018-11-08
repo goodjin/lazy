@@ -64,6 +64,7 @@ func (m *KafkaReader) ReadLoop() {
 				m.consumer.MarkOffset(msg, "")
 			}
 		case <-m.exitChan:
+			m.consumer.Close()
 			return
 		}
 	}
@@ -71,7 +72,6 @@ func (m *KafkaReader) ReadLoop() {
 
 func (m *KafkaReader) Stop() {
 	close(m.exitChan)
-	m.consumer.Close()
 }
 func (m *KafkaReader) GetMsgChan() chan *map[string][]byte {
 	return m.msgChan
@@ -105,7 +105,6 @@ func NewKafkaWriter(config map[string]string) (*KafkaWriter, error) {
 }
 
 func (kafkaWriter *KafkaWriter) Stop() {
-	kafkaWriter.producer.Close()
 	close(kafkaWriter.exitChan)
 }
 
@@ -116,6 +115,7 @@ func (kafkaWriter *KafkaWriter) Start(dataChan chan *map[string]interface{}) {
 	for {
 		select {
 		case <-kafkaWriter.exitChan:
+			kafkaWriter.producer.Close()
 			return
 		case logmsg := <-dataChan:
 			partition, offset, err = kafkaWriter.producer.SendMessage(&sarama.ProducerMessage{Topic: kafkaWriter.Topic, Value: sarama.StringEncoder((*logmsg)["rawmsg"].(string))})
