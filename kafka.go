@@ -30,7 +30,7 @@ func NewKafkaReader(config map[string]string) (*KafkaReader, error) {
 	brokers := strings.Split(config["KafkaBrokers"], ",")
 	topics := strings.Split(config["Topics"], ",")
 	kafkaconfig := cluster.NewConfig()
-	kafkaconfig.Consumer.Fetch.Default = 1024*1024*10
+	kafkaconfig.Version = sarama.V2_0_0_0
 	kafkaconfig.Consumer.Return.Errors = true
 	kafkaconfig.Group.Return.Notifications = true
 	var err error
@@ -119,7 +119,6 @@ func (kafkaWriter *KafkaWriter) Start(dataChan chan *map[string]interface{}) {
 		case err := <-kafkaWriter.producer.Errors():
 			if err != nil {
 				fmt.Println(err.Err)
-				kafkaWriter.producer.Input() <- err.Msg
 			}
 		}
 	}
