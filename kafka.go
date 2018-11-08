@@ -12,7 +12,8 @@ import (
 // config
 // {
 // "KafkaBrokers":"127.0.0.1:9200,172.17.0.1:9200",
-// "Topic":"xxx",
+// "Topics":"xxx,xxx,xxx",
+// "ConsumerGroup":"test",
 // "Type":"kafka"
 // }
 
@@ -53,8 +54,8 @@ func (m *KafkaReader) ReadLoop() {
 		}
 	}()
 
-	logmsg := make(map[string][]byte)
 	for {
+		logmsg := make(map[string][]byte)
 		select {
 		case msg, ok := <-m.consumer.Messages():
 			if ok {
