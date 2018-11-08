@@ -55,10 +55,10 @@ func (m *KafkaReader) ReadLoop() {
 	}()
 
 	for {
-		logmsg := make(map[string][]byte)
 		select {
 		case msg, ok := <-m.consumer.Messages():
 			if ok {
+				logmsg := make(map[string][]byte)
 				logmsg["msg"] = msg.Value
 				m.msgChan <- &logmsg
 				m.consumer.MarkOffset(msg, "")
