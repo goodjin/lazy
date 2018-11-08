@@ -81,8 +81,17 @@ func (l *LogParser) wildFormat(msgTokens *[]string) (*map[string]interface{}, er
 			case "strings":
 				k := strings.Split(token, " ")
 				v := strings.Split(string(tk), " ")
+				var trimedArray []string
 				if len(k) != len(v) {
-					return &data, fmt.Errorf("log fromat error: %s %s", k, v)
+					for _, str := range v {
+						if str != "" {
+							trimedArray = append(trimedArray, str)
+						}
+					}
+					v = trimedArray
+					if len(k) != len(trimedArray) {
+						return &data, fmt.Errorf("log fromat error: %s %s", k, v)
+					}
 				}
 				for l := 0; l < len(k); l++ {
 					data[k[l]] = v[l]
