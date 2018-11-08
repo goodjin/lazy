@@ -57,43 +57,45 @@ func NewFileReader(config map[string]string) (*FileReader, error) {
 func (m *FileReader) ReadLoop() {
 	reader := bufio.NewReader(m.fd)
 	for {
-		logmsg := make(map[string][]byte)
 		select {
 		case <-m.exitChan:
 			return
 		default:
-			line, err := reader.ReadString('\n')
+			current, _ := m.fd.Seek(0, io.SeekCurrent)
+			line, err := reader.ReadBytes('\n')
 			if err != nil && err != io.EOF {
 				fmt.Println(err)
 				time.Sleep(time.Second)
 				break
 			}
+			if err == io.EOF && line[len(line)-1] != byte('\n') {
+				m.fd.Seek(current, io.SeekStart)
+				reader = bufio.NewReader(m.fd)
+				time.Sleep(time.Second)
+				break
+			}
 			if err == io.EOF {
-				size0, err := m.fd.Seek(0, io.SeekCurrent)
-				if err != nil {
-					log.Println("open failed", err)
-					break
-				}
 				fd, err := os.Open(m.FileName)
 				if err != nil {
 					log.Println("open failed", err)
 					break
 				}
 				m.fd.Close()
-				m.fd = fd
-				size1, err := m.fd.Seek(0, io.SeekEnd)
+				neweof, err := fd.Seek(0, io.SeekEnd)
 				if err != nil {
 					log.Println(err)
 				}
-				if size1 < size0 {
-					m.fd.Seek(0, io.SeekCurrent)
+				if neweof < current {
+					fd.Seek(0, io.SeekCurrent)
 				} else {
-					m.fd.Seek(size0, io.SeekStart)
+					fd.Seek(current, io.SeekStart)
 				}
+				m.fd = fd
 				reader = bufio.NewReader(fd)
 			}
 			if len(line) > 0 {
-				logmsg["msg"] = []byte(line)
+				logmsg := make(map[string][]byte)
+				logmsg["msg"] = line
 				m.msgChan <- &logmsg
 			}
 		}

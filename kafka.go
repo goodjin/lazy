@@ -30,7 +30,6 @@ func NewKafkaReader(config map[string]string) (*KafkaReader, error) {
 	brokers := strings.Split(config["KafkaBrokers"], ",")
 	topics := strings.Split(config["Topics"], ",")
 	kafkaconfig := cluster.NewConfig()
-	kafkaconfig.Version = sarama.V2_0_0_0
 	kafkaconfig.Consumer.Return.Errors = true
 	kafkaconfig.Group.Return.Notifications = true
 	var err error
