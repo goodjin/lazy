@@ -68,11 +68,16 @@ func (m *FileReader) ReadLoop() {
 				time.Sleep(time.Second)
 				break
 			}
-			if err == io.EOF && line[len(line)-1] != byte('\n') {
-				m.fd.Seek(current, io.SeekStart)
-				reader = bufio.NewReader(m.fd)
-				time.Sleep(time.Second)
-				break
+			if err == io.EOF {
+				if len(line) == 0 {
+					break
+				}
+				if line[len(line)-1] != byte('\n') {
+					m.fd.Seek(current, io.SeekStart)
+					reader = bufio.NewReader(m.fd)
+					time.Sleep(time.Second)
+					break
+				}
 			}
 			if err == io.EOF {
 				fd, err := os.Open(m.FileName)
