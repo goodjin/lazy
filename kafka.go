@@ -96,6 +96,7 @@ func NewKafkaWriter(config map[string]string) (*KafkaWriter, error) {
 	kafkaWriter.exitChan = make(chan int)
 	var err error
 	kafkaConfig := sarama.NewConfig()
+	kafkaConfig.Producer.Return.Successes = true
 	kafkaConfig.Producer.RequiredAcks = sarama.WaitForLocal       // Only wait for the leader to ack
 	kafkaConfig.Producer.Compression = sarama.CompressionSnappy   // Compress messages
 	kafkaConfig.Producer.Flush.Frequency = 500 * time.Millisecond // Flush batches every 500ms
