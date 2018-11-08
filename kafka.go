@@ -11,7 +11,7 @@ import (
 
 // config
 // {
-// "KafkaAddresses":"127.0.0.1:9200,172.17.0.1:9200",
+// "KafkaBrokers":"127.0.0.1:9200,172.17.0.1:9200",
 // "Topic":"xxx",
 // "Type":"kafka"
 // }
@@ -79,7 +79,7 @@ func (m *KafkaReader) GetMsgChan() chan *map[string][]byte {
 // config
 // {
 // "Topic":"xxxx",
-// "KafkaAddresses":"127.0.0.1:9200,172.17.0.1:9200",
+// "KafkaBrokers":"127.0.0.1:9200,172.17.0.1:9200",
 // "Type":"kafka"
 // }
 
@@ -98,7 +98,7 @@ func NewKafkaWriter(config map[string]string) (*KafkaWriter, error) {
 	kafkaConfig.Producer.RequiredAcks = sarama.WaitForLocal       // Only wait for the leader to ack
 	kafkaConfig.Producer.Compression = sarama.CompressionSnappy   // Compress messages
 	kafkaConfig.Producer.Flush.Frequency = 500 * time.Millisecond // Flush batches every 500ms
-	kafkaWriter.producer, err = sarama.NewAsyncProducer(strings.Split(config["KafkaAddresses"], ","), kafkaConfig)
+	kafkaWriter.producer, err = sarama.NewAsyncProducer(strings.Split(config["KafkaBrokers"], ","), kafkaConfig)
 	return kafkaWriter, err
 }
 
