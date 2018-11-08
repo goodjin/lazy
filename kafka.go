@@ -65,6 +65,7 @@ func (m *KafkaReader) ReadLoop() {
 			}
 		case <-m.exitChan:
 			m.consumer.Close()
+			log.Println("exit kafka consumer")
 			return
 		}
 	}
@@ -112,6 +113,7 @@ func (kafkaWriter *KafkaWriter) Start(dataChan chan *map[string]interface{}) {
 		select {
 		case <-kafkaWriter.exitChan:
 			kafkaWriter.producer.Close()
+			log.Println("exit kafka producer")
 			return
 		case logmsg := <-dataChan:
 			kafkaWriter.producer.Input() <- &sarama.ProducerMessage{Topic: kafkaWriter.Topic, Key: nil, Value: sarama.StringEncoder((*logmsg)["rawmsg"].(string))}

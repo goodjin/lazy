@@ -25,7 +25,7 @@ func main() {
 	if err != nil {
 		log.Fatal("failed to start pool error", err)
 	}
-	ticker := time.Tick(time.Second * 60)
+	ticker := time.Tick(time.Second * 15)
 	termchan := make(chan os.Signal, 1)
 	signal.Notify(termchan, syscall.SIGINT, syscall.SIGTERM)
 	taskPool := NewTaskPool()
@@ -56,7 +56,7 @@ func main() {
 					go w.Run()
 				}
 				taskPool.Join(w)
-				fmt.Println(k, " is started")
+				fmt.Println("task", k, "is started")
 			}
 		case <-termchan:
 			taskPool.Stop()

@@ -59,6 +59,8 @@ func (m *FileReader) ReadLoop() {
 	for {
 		select {
 		case <-m.exitChan:
+			m.fd.Close()
+			log.Println("closing reading", m.FileName)
 			return
 		default:
 			current, _ := m.fd.Seek(0, io.SeekCurrent)
@@ -109,7 +111,6 @@ func (m *FileReader) ReadLoop() {
 
 func (m *FileReader) Stop() {
 	close(m.exitChan)
-	m.fd.Close()
 }
 func (m *FileReader) GetMsgChan() chan *map[string][]byte {
 	return m.msgChan
