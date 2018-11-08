@@ -94,8 +94,8 @@ func (m *FileReader) ReadLoop() {
 			}
 			if len(line) > 0 {
 				logmsg["msg"] = []byte(line)
+				m.msgChan <- &logmsg
 			}
-			m.msgChan <- &logmsg
 		}
 	}
 }
