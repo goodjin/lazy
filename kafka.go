@@ -85,7 +85,7 @@ func (m *KafkaReader) GetMsgChan() chan *map[string][]byte {
 // }
 
 type KafkaWriter struct {
-	producer sarama.AsyncProducer
+	producer sarama.SyncProducer
 	Topic    string
 	exitChan chan int
 }
@@ -99,7 +99,7 @@ func NewKafkaWriter(config map[string]string) (*KafkaWriter, error) {
 	kafkaConfig.Producer.RequiredAcks = sarama.WaitForLocal       // Only wait for the leader to ack
 	kafkaConfig.Producer.Compression = sarama.CompressionSnappy   // Compress messages
 	kafkaConfig.Producer.Flush.Frequency = 500 * time.Millisecond // Flush batches every 500ms
-	kafkaWriter.producer, err = sarama.NewAsyncProducer(strings.Split(config["KafkaBrokers"], ","), kafkaConfig)
+	kafkaWriter.producer, err = sarama.NewSyncProducer(strings.Split(config["KafkaBrokers"], ","), kafkaConfig)
 	return kafkaWriter, err
 }
 
@@ -109,15 +109,17 @@ func (kafkaWriter *KafkaWriter) Stop() {
 }
 
 func (kafkaWriter *KafkaWriter) Start(dataChan chan *map[string]interface{}) {
+	var partition int32
+	var offset int64
+	var err error
 	for {
 		select {
 		case <-kafkaWriter.exitChan:
 			return
 		case logmsg := <-dataChan:
-			kafkaWriter.producer.Input() <- &sarama.ProducerMessage{Topic: kafkaWriter.Topic, Key: nil, Value: sarama.StringEncoder((*logmsg)["rawmsg"].(string))}
-		case err := <-kafkaWriter.producer.Errors():
+			partition, offset, err = kafkaWriter.producer.SendMessage(&sarama.ProducerMessage{Topic: kafkaWriter.Topic, Value: sarama.StringEncoder((*logmsg)["rawmsg"].(string))})
 			if err != nil {
-				fmt.Println(err)
+				fmt.Println(partition, offset, err)
 			}
 		}
 	}
