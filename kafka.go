@@ -30,6 +30,7 @@ func NewKafkaReader(config map[string]string) (*KafkaReader, error) {
 	brokers := strings.Split(config["KafkaBrokers"], ",")
 	topics := strings.Split(config["Topics"], ",")
 	kafkaconfig := cluster.NewConfig()
+	kafkaconfig.Group.Mode = cluster.ConsumerModePartitions
 	kafkaconfig.Consumer.Return.Errors = true
 	kafkaconfig.Group.Return.Notifications = true
 	var err error
@@ -56,13 +57,19 @@ func (m *KafkaReader) ReadLoop() {
 
 	for {
 		select {
-		case msg, ok := <-m.consumer.Messages():
-			if ok {
-				logmsg := make(map[string][]byte)
-				logmsg["msg"] = msg.Value
-				m.msgChan <- &logmsg
-				m.consumer.MarkOffset(msg, "")
+		case partitions, ok := <-m.consumer.Partitions():
+			if !ok {
+				fmt.Println("not partions")
+				break
 			}
+			go func(pc cluster.PartitionConsumer) {
+				for msg := range pc.Messages() {
+					logmsg := make(map[string][]byte)
+					logmsg["msg"] = msg.Value
+					m.msgChan <- &logmsg
+					m.consumer.MarkOffset(msg, "")
+				}
+			}(partitions)
 		case <-m.exitChan:
 			m.consumer.Close()
 			return
