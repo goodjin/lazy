@@ -5,6 +5,7 @@ import (
 	"github.com/Shopify/sarama"
 	cluster "github.com/bsm/sarama-cluster"
 	"log"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -14,6 +15,8 @@ import (
 // "KafkaBrokers":"127.0.0.1:9200,172.17.0.1:9200",
 // "Topics":"xxx,xxx,xxx",
 // "ConsumerGroup":"test",
+// "User":"",
+// "Password":"",
 // "Type":"kafka"
 // }
 
@@ -29,11 +32,16 @@ func NewKafkaReader(config map[string]string) (*KafkaReader, error) {
 	m.exitChan = make(chan int)
 	brokers := strings.Split(config["KafkaBrokers"], ",")
 	topics := strings.Split(config["Topics"], ",")
-	kafkaconfig := cluster.NewConfig()
-	kafkaconfig.Consumer.Return.Errors = true
-	kafkaconfig.Group.Return.Notifications = true
+	kafkaConfig := cluster.NewConfig()
+	kafkaConfig.Consumer.Return.Errors = true
+	kafkaConfig.Group.Return.Notifications = true
+	if len(config["User"]) > 0 {
+		kafkaConfig.Net.SASL.Enable = true
+		kafkaConfig.Net.SASL.User = config["User"]
+		kafkaConfig.Net.SASL.Password = config["Password"]
+	}
 	var err error
-	m.consumer, err = cluster.NewConsumer(brokers, config["ConsumerGroup"], topics, kafkaconfig)
+	m.consumer, err = cluster.NewConsumer(brokers, config["ConsumerGroup"], topics, kafkaConfig)
 	go m.ReadLoop()
 	log.Println("start consumer for topic", config["Topics"])
 	return m, err
@@ -82,6 +90,10 @@ func (m *KafkaReader) GetMsgChan() chan *map[string][]byte {
 // {
 // "Topic":"xxxx",
 // "KafkaBrokers":"127.0.0.1:9200,172.17.0.1:9200",
+// "CompressionType":"snappy",
+// "FlushFrequency":"",
+// "User":"",
+// "Password":"",
 // "Type":"kafka"
 // }
 
@@ -95,11 +107,31 @@ func NewKafkaWriter(config map[string]string) (*KafkaWriter, error) {
 	kafkaWriter := &KafkaWriter{}
 	kafkaWriter.Topic = config["Topic"]
 	kafkaWriter.exitChan = make(chan int)
-	var err error
+	interval, err := strconv.Atoi(config["FlushFrequency"])
+	if err != nil || interval < 500 {
+		interval = 500
+	}
 	kafkaConfig := sarama.NewConfig()
-	kafkaConfig.Producer.RequiredAcks = sarama.WaitForLocal       // Only wait for the leader to ack
-	kafkaConfig.Producer.Compression = sarama.CompressionSnappy   // Compress messages
-	kafkaConfig.Producer.Flush.Frequency = 500 * time.Millisecond // Flush batches every 500ms
+	kafkaConfig.Producer.RequiredAcks = sarama.WaitForLocal
+	switch config["CompressionType"] {
+	case "snappy":
+		kafkaConfig.Producer.Compression = sarama.CompressionSnappy
+	case "lz4":
+		kafkaConfig.Producer.Compression = sarama.CompressionLZ4
+	case "gzip":
+		kafkaConfig.Producer.Compression = sarama.CompressionGZIP
+	case "zstd":
+		kafkaConfig.Producer.Compression = sarama.CompressionZSTD
+	default:
+		kafkaConfig.Producer.Compression = sarama.CompressionNone
+	}
+	kafkaConfig.Producer.Flush.Frequency = time.Duration(int64(interval)) * time.Millisecond
+
+	if len(config["User"]) > 0 {
+		kafkaConfig.Net.SASL.Enable = true
+		kafkaConfig.Net.SASL.User = config["User"]
+		kafkaConfig.Net.SASL.Password = config["Password"]
+	}
 	kafkaWriter.producer, err = sarama.NewAsyncProducer(strings.Split(config["KafkaBrokers"], ","), kafkaConfig)
 	return kafkaWriter, err
 }

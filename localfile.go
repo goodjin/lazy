@@ -4,113 +4,218 @@ import (
 	"bufio"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"log"
 	"os"
+	"regexp"
+	"strings"
+	"sync"
+	"syscall"
 	"time"
 )
 
 // config
 // {
-// "FileName":"./xxx",
+// "Files":"./xxx",
 // "ReadAll":"true",
 // "Type":"file"
 // }
 
-type FileReader struct {
-	FileName string
-	ReadAll  bool
+type FileExInfo struct {
 	fd       *os.File
+	Setting  *FileReader
 	exitChan chan int
-	msgChan  chan *map[string][]byte
+	offsize  int64
+	Name     string `json:"Name"`
+	Inode    uint64 `json:"Inode"`
+	Device   uint64 `json:"Device"`
 }
 
-func NewFileReader(config map[string]string) (*FileReader, error) {
-	m := &FileReader{}
-	m.msgChan = make(chan *map[string][]byte)
-	m.exitChan = make(chan int)
-	m.FileName = config["FileName"]
-	m.ReadAll = false
-	if config["ReadAll"] == "true" {
-		m.ReadAll = true
-	}
+func GetFileExInfo(info os.FileInfo) (uint64, uint64) {
+	stat := info.Sys().(*syscall.Stat_t)
+
+	return uint64(stat.Ino), uint64(stat.Dev)
+}
+
+func (fs FileExInfo) IsSame(fInfo FileExInfo) bool {
+	return fs.Inode == fInfo.Inode && fs.Device == fInfo.Device
+}
+
+func (fs FileExInfo) GetHashString() string {
+	return fmt.Sprintf("%d:%d", fs.Inode, fs.Device)
+}
+
+func NewFileExInfo(name string, freader *FileReader) (*FileExInfo, error) {
+	fInfo := &FileExInfo{Name: name}
+	fInfo.Setting = freader
 	var err error
-	m.fd, err = os.Open(m.FileName)
+	fInfo.fd, err = os.Open(fInfo.Name)
 	if err != nil {
-		return m, err
+		return fInfo, err
 	}
-	_, err = m.fd.Seek(0, io.SeekStart)
-	if err != nil {
-		return m, err
+	fstat, err := fInfo.fd.Stat()
+	if err == nil {
+		fInfo.Inode, fInfo.Device = GetFileExInfo(fstat)
 	}
-	if !m.ReadAll {
-		_, err = m.fd.Seek(0, io.SeekEnd)
-		if err != nil {
-			return m, err
-		}
-		log.Println("reading from EOF")
-	}
-	go m.ReadLoop()
-	log.Println("start reading", m.FileName)
-	return m, err
+	return fInfo, err
 }
-
-func (m *FileReader) ReadLoop() {
+func (m *FileExInfo) ReadLoop() {
+	if m.Setting.ReadAll {
+		m.offsize, _ = m.fd.Seek(0, io.SeekStart)
+	} else {
+		m.offsize, _ = m.fd.Seek(0, io.SeekEnd)
+	}
 	reader := bufio.NewReader(m.fd)
 	for {
 		select {
 		case <-m.exitChan:
-			m.fd.Close()
-			log.Println("closing reading", m.FileName)
 			return
 		default:
-			current, _ := m.fd.Seek(0, io.SeekCurrent)
+			m.offsize, _ = m.fd.Seek(0, io.SeekCurrent)
 			line, err := reader.ReadBytes('\n')
 			if err != nil && err != io.EOF {
 				fmt.Println(err)
+				if len(line) > 0 {
+					m.fd.Seek(m.offsize, io.SeekStart)
+				}
 				time.Sleep(time.Second)
 				break
 			}
 			if err == io.EOF {
+				// check same name is rename or not
+				fInfo, err := NewFileExInfo(m.Name, m.Setting)
+				if err == nil {
+					if !m.IsSame(*fInfo) {
+						// renamed
+						m.Setting.refreshChan <- 1
+						m.Setting.Lock()
+						f, ok := m.Setting.Files[m.GetHashString()]
+						if ok {
+							// update renamed name
+							m.Name = f.Name
+						}
+						m.Setting.Unlock()
+					}
+					fInfo.Stop()
+				}
 				if len(line) == 0 {
+					time.Sleep(time.Second)
 					break
 				}
 				if line[len(line)-1] != byte('\n') {
-					m.fd.Seek(current, io.SeekStart)
+					// reset readline
+					m.fd.Seek(m.offsize, io.SeekStart)
 					reader = bufio.NewReader(m.fd)
 					time.Sleep(time.Second)
 					break
 				}
 			}
-			if err == io.EOF {
-				fd, err := os.Open(m.FileName)
-				if err != nil {
-					log.Println("open failed", err)
-					break
-				}
-				m.fd.Close()
-				neweof, err := fd.Seek(0, io.SeekEnd)
-				if err != nil {
-					log.Println(err)
-				}
-				if neweof < current {
-					fd.Seek(0, io.SeekCurrent)
-				} else {
-					fd.Seek(current, io.SeekStart)
-				}
-				m.fd = fd
-				reader = bufio.NewReader(fd)
-			}
 			if len(line) > 0 {
 				logmsg := make(map[string][]byte)
 				logmsg["msg"] = line
-				m.msgChan <- &logmsg
+				m.Setting.msgChan <- &logmsg
 			}
 		}
 	}
 }
+func (fs FileExInfo) Stop() {
+	close(fs.exitChan)
+	fs.fd.Close()
+}
 
+type FileReader struct {
+	sync.Mutex
+	Files       map[string]*FileExInfo
+	msgChan     chan *map[string][]byte
+	refreshChan chan int
+	FileList    string
+	ReadAll     bool
+	exitChan    chan int
+}
+
+func NewFileReader(config map[string]string) (*FileReader, error) {
+	m := &FileReader{}
+	m.exitChan = make(chan int)
+	m.refreshChan = make(chan int)
+	m.Files = make(map[string]*FileExInfo)
+	m.FileList = config["Files"]
+	m.ReadAll = false
+	if config["ReadAll"] == "true" {
+		m.ReadAll = true
+	}
+	err := m.GetFiles()
+	go func() {
+		m.ReadAll = true
+		ticker := time.Tick(time.Minute)
+		for {
+			select {
+			case <-ticker:
+				go m.GetFiles()
+			case <-m.refreshChan:
+				go m.GetFiles()
+			case <-m.exitChan:
+				return
+			}
+		}
+	}()
+	return m, err
+}
+
+func (m *FileReader) GetFiles() error {
+	tokens := strings.Split(m.FileList, "/")
+	fileName := tokens[len(tokens)-1]
+	var path string
+	if len(tokens) > 2 {
+		path = strings.Join(tokens[:len(tokens)-2], "/")
+	} else {
+		path = "."
+	}
+	files, err := ioutil.ReadDir(path)
+	if err != nil {
+		return err
+	}
+	m.Lock()
+	fileMap := make(map[string]string)
+	for _, file := range files {
+		reg, err := regexp.Compile(fileName)
+		if err != nil {
+			return err
+		}
+		if !reg.MatchString(file.Name()) {
+			continue
+		}
+		fInfo, err := NewFileExInfo(fmt.Sprintf("%s/%s", path, file.Name()), m)
+		if err == nil {
+			fileMap[fInfo.GetHashString()] = fInfo.Name
+			f, ok := m.Files[fInfo.GetHashString()]
+			if ok {
+				if f.Name != fInfo.Name {
+					f.Name = fInfo.Name
+				}
+				fInfo.fd.Close()
+				continue
+			}
+			m.Files[fInfo.GetHashString()] = fInfo
+			log.Println("start reading", fInfo.Name)
+			go fInfo.ReadLoop()
+		}
+	}
+	for _, v := range m.Files {
+		if _, ok := fileMap[v.GetHashString()]; !ok {
+			m.Files[v.GetHashString()].Stop()
+			delete(m.Files, v.GetHashString())
+		}
+	}
+	m.Unlock()
+	return nil
+}
 func (m *FileReader) Stop() {
 	close(m.exitChan)
+	m.Lock()
+	for _, file := range m.Files {
+		file.Stop()
+	}
+	m.Unlock()
 }
 func (m *FileReader) GetMsgChan() chan *map[string][]byte {
 	return m.msgChan
