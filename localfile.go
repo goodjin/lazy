@@ -144,8 +144,10 @@ func NewFileReader(config map[string]string) (*FileReader, error) {
 		m.ReadAll = true
 	}
 	err := m.GetFiles()
-	go func() {
+	if err == nil {
 		m.ReadAll = true
+	}
+	go func() {
 		ticker := time.Tick(time.Minute)
 		for {
 			select {
@@ -176,28 +178,44 @@ func (m *FileReader) GetFiles() error {
 	}
 	m.Lock()
 	fileMap := make(map[string]string)
-	for _, file := range files {
-		reg, err := regexp.Compile(fileName)
-		if err != nil {
+	exactFile, err := NewFileExInfo(m.FileList, m)
+	if err == nil {
+		fileMap[exactFile.GetHashString()] = exactFile.Name
+		f, ok := m.Files[exactFile.GetHashString()]
+		if ok {
+			if f.Name != exactFile.Name {
+				f.Name = exactFile.Name
+			}
+			exactFile.fd.Close()
 			return err
 		}
-		if !reg.MatchString(file.Name()) {
-			continue
-		}
-		fInfo, err := NewFileExInfo(fmt.Sprintf("%s/%s", path, file.Name()), m)
-		if err == nil {
-			fileMap[fInfo.GetHashString()] = fInfo.Name
-			f, ok := m.Files[fInfo.GetHashString()]
-			if ok {
-				if f.Name != fInfo.Name {
-					f.Name = fInfo.Name
-				}
-				fInfo.fd.Close()
+		m.Files[exactFile.GetHashString()] = exactFile
+		log.Println("start reading", exactFile.Name)
+		go exactFile.ReadLoop()
+	} else {
+		for _, file := range files {
+			reg, err := regexp.Compile(fileName)
+			if err != nil {
+				return err
+			}
+			if !reg.MatchString(file.Name()) {
 				continue
 			}
-			m.Files[fInfo.GetHashString()] = fInfo
-			log.Println("start reading", fInfo.Name)
-			go fInfo.ReadLoop()
+			fInfo, err := NewFileExInfo(fmt.Sprintf("%s/%s", path, file.Name()), m)
+			if err == nil {
+				fileMap[fInfo.GetHashString()] = fInfo.Name
+				f, ok := m.Files[fInfo.GetHashString()]
+				if ok {
+					if f.Name != fInfo.Name {
+						f.Name = fInfo.Name
+					}
+					fInfo.fd.Close()
+					continue
+				}
+				m.Files[fInfo.GetHashString()] = fInfo
+				log.Println("start reading", fInfo.Name)
+				go fInfo.ReadLoop()
+			}
 		}
 	}
 	for _, v := range m.Files {
