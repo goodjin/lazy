@@ -187,15 +187,16 @@ func (m *FileReader) GetFiles() error {
 				f.Name = exactFile.Name
 			}
 			exactFile.fd.Close()
-			return err
+		} else {
+			m.Files[exactFile.GetHashString()] = exactFile
+			log.Println("start reading", exactFile.Name)
+			go exactFile.ReadLoop()
 		}
-		m.Files[exactFile.GetHashString()] = exactFile
-		log.Println("start reading", exactFile.Name)
-		go exactFile.ReadLoop()
 	} else {
 		for _, file := range files {
 			reg, err := regexp.Compile(fileName)
 			if err != nil {
+				m.Unlock()
 				return err
 			}
 			if !reg.MatchString(file.Name()) {
