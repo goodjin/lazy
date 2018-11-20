@@ -102,6 +102,11 @@ func NewLogProcessTask(name string, config []byte) (*LogProccessTask, error) {
 		if err != nil {
 			return nil, err
 		}
+	case "mqtt":
+		logProcessTask.Input, err = NewMQTTReader(logProcessTask.InputSetting)
+		if err != nil {
+			return nil, err
+		}
 	default:
 		return nil, fmt.Errorf("not supported data source")
 	}
