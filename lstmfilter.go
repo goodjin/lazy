@@ -108,7 +108,7 @@ func (lstmfilter *LSTMFilter) indexToRune(i int) (rune, error) {
 func (lstmfilter *LSTMFilter) Handle(msg *map[string]interface{}) (*map[string]interface{}, error) {
 	var rawmsg string
 	for _, v := range *msg {
-		rawmsg = fmt.Sprintf("%s %s", rawmsg, v)
+		rawmsg = fmt.Sprintf("%s %v", rawmsg, v)
 	}
 	prediction := char.NewPrediction(rawmsg, lstmfilter.runeToIndex, lstmfilter.SampleSize, lstmfilter.vocabSize)
 	err := lstmfilter.model.Predict(context.TODO(), prediction)
