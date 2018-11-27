@@ -85,7 +85,7 @@ func (m *NSQReader) GetMsgChan() chan *map[string][]byte {
 // "Name":"task",
 // "NSQAddress":"127.0.0.1:9200,172.17.0.1:9200",
 // "CompressionType":"snappy",
-// "Batch":""
+// "BatchSize":"20"
 // }
 
 type NSQWriter struct {
@@ -102,7 +102,9 @@ func NewNSQWriter(config map[string]string) (*NSQWriter, error) {
 	cfg := nsq.NewConfig()
 	hostname, err := os.Hostname()
 	cfg.Set("user_agent", fmt.Sprintf("%s/%s", config["Name"], hostname))
-	cfg.Set(config["CompressionType"], true)
+	if config["CompressionType"] != "" {
+		cfg.Set(config["CompressionType"], true)
+	}
 	nsqWriter.producer, err = nsq.NewProducer(config["NSQAddress"], cfg)
 	return nsqWriter, err
 }
