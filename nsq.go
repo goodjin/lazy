@@ -79,3 +79,58 @@ func (m *NSQReader) Stop() {
 func (m *NSQReader) GetMsgChan() chan *map[string][]byte {
 	return m.msgChan
 }
+
+// {
+// "Topic":"xxxx",
+// "Name":"task",
+// "NSQAddress":"127.0.0.1:9200,172.17.0.1:9200",
+// "CompressionType":"snappy",
+// "Batch":""
+// }
+
+type NSQWriter struct {
+	producer  *nsq.Producer
+	Topic     string
+	BatchSize int
+	exitChan  chan int
+}
+
+func NewNSQWriter(config map[string]string) (*NSQWriter, error) {
+	nsqWriter := &NSQWriter{}
+	nsqWriter.Topic = config["Topic"]
+	nsqWriter.BatchSize, _ = strconv.Atoi(config["BatchSize"])
+	cfg := nsq.NewConfig()
+	hostname, err := os.Hostname()
+	cfg.Set("user_agent", fmt.Sprintf("%s/%s", config["Name"], hostname))
+	cfg.Set(config["CompressionType"], true)
+	nsqWriter.producer, err = nsq.NewProducer(config["NSQAddress"], cfg)
+	return nsqWriter, err
+}
+
+func (nsqWriter *NSQWriter) Stop() {
+	nsqWriter.producer.Stop()
+	close(nsqWriter.exitChan)
+	log.Println("exit nsq producer")
+}
+
+func (nsqWriter *NSQWriter) Start(dataChan chan *map[string]interface{}) {
+	var body [][]byte
+	for {
+		select {
+		case <-nsqWriter.exitChan:
+			return
+		case logmsg := <-dataChan:
+			item := (*logmsg)["msg"].(string)
+			if nsqWriter.BatchSize > 1 {
+				if len(body) < nsqWriter.BatchSize {
+					body = append(body, []byte(item))
+					break
+				}
+				nsqWriter.producer.MultiPublish(nsqWriter.Topic, body)
+				body = body[:0]
+			} else {
+				nsqWriter.producer.Publish(nsqWriter.Topic, []byte(item))
+			}
+		}
+	}
+}

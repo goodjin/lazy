@@ -83,6 +83,8 @@ func NewLogProcessTask(name string, config []byte) (*LogProccessTask, error) {
 			logProcessTask.Filters[k] = NewRegexpFilter(v)
 		case "geoip2":
 			logProcessTask.Filters[k] = NewGeoIP2Filter(v)
+		case "lstm":
+			logProcessTask.Filters[k] = NewLSTMFilter(v)
 		}
 	}
 	var err error
@@ -118,6 +120,11 @@ func NewLogProcessTask(name string, config []byte) (*LogProccessTask, error) {
 		}
 	case "kafka":
 		logProcessTask.Output, err = NewKafkaWriter(logProcessTask.OutputSetting)
+		if err != nil {
+			return nil, err
+		}
+	case "nsq":
+		logProcessTask.Output, err = NewNSQWriter(logProcessTask.OutputSetting)
 		if err != nil {
 			return nil, err
 		}
