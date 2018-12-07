@@ -131,6 +131,7 @@ func NewFileReader(config map[string]string) (*FileReader, error) {
 	m := &FileReader{}
 	m.exitChan = make(chan int)
 	m.refreshChan = make(chan int)
+	m.msgChan = make(chan *map[string][]byte)
 	m.Files = make(map[string]*FileExInfo)
 	m.FileList = config["Files"]
 	if len(m.FileList) == 0 {
