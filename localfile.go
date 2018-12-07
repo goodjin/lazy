@@ -57,6 +57,7 @@ func NewFileExInfo(name string, freader *FileReader) (*FileExInfo, error) {
 	if err == nil {
 		fInfo.Inode, fInfo.Device = GetFileExInfo(fstat)
 	}
+	fInfo.exitChan = make(chan int)
 	return fInfo, err
 }
 func (m *FileExInfo) ReadLoop() {
