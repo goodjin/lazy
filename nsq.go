@@ -105,6 +105,7 @@ func NewNSQWriter(config map[string]string) (*NSQWriter, error) {
 	if config["CompressionType"] != "" {
 		cfg.Set(config["CompressionType"], true)
 	}
+	nsqWriter.exitChan = make(chan int)
 	nsqWriter.producer, err = nsq.NewProducer(config["NSQAddress"], cfg)
 	return nsqWriter, err
 }
