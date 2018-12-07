@@ -45,7 +45,7 @@ func (l *LogParser) Handle(msg *map[string][]byte) (*map[string]interface{}, err
 		return l.wildFormat(generateLogTokens((*msg)["msg"]))
 	case "keyvalue":
 		var kv map[string]string
-		err := json.Unmarshal((*msg)["msg"], &kv)
+		err = json.Unmarshal((*msg)["msg"], &kv)
 		if err == nil {
 			for k, v := range kv {
 				data[k] = v
