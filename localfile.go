@@ -26,6 +26,7 @@ type FileExInfo struct {
 	Setting  *FileReader
 	exitChan chan int
 	offsize  int64
+	IsEOF    bool
 	Name     string `json:"Name"`
 	Inode    uint64 `json:"Inode"`
 	Device   uint64 `json:"Device"`
@@ -58,6 +59,7 @@ func NewFileExInfo(name string, freader *FileReader) (*FileExInfo, error) {
 		fInfo.Inode, fInfo.Device = GetFileExInfo(fstat)
 	}
 	fInfo.exitChan = make(chan int)
+	fInfo.IsEOF = false
 	return fInfo, err
 }
 func (m *FileExInfo) ReadLoop() {
@@ -88,6 +90,7 @@ func (m *FileExInfo) ReadLoop() {
 				if err == nil {
 					if !m.IsSame(*fInfo) {
 						// renamed
+						m.IsEOF = true
 						m.Setting.refreshChan <- 1
 					}
 					fInfo.Stop()
@@ -176,14 +179,11 @@ func (m *FileReader) GetFiles() error {
 	}
 	m.Lock()
 	fileMap := make(map[string]string)
-	exactFile, err := NewFileExInfo(m.FileList, m)
+	exactFile, err := NewFileExInfo(m.FileList, m) // newfile
 	if err == nil {
 		fileMap[exactFile.GetHashString()] = exactFile.Name
-		f, ok := m.Files[exactFile.GetHashString()]
-		if ok {
-			if f.Name != exactFile.Name {
-				f.Name = exactFile.Name
-			}
+		_, ok := m.Files[exactFile.GetHashString()]
+		if ok { // ignore old config
 			exactFile.fd.Close()
 		} else {
 			m.Files[exactFile.GetHashString()] = exactFile
@@ -219,8 +219,10 @@ func (m *FileReader) GetFiles() error {
 	}
 	for _, v := range m.Files {
 		if _, ok := fileMap[v.GetHashString()]; !ok {
-			m.Files[v.GetHashString()].Stop()
-			delete(m.Files, v.GetHashString())
+			if v.IsEOF {
+				m.Files[v.GetHashString()].Stop()
+				delete(m.Files, v.GetHashString())
+			}
 		}
 	}
 	m.Unlock()
