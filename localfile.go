@@ -88,13 +88,6 @@ func (m *FileExInfo) ReadLoop() {
 					if !m.IsSame(*fInfo) {
 						// renamed
 						m.Setting.refreshChan <- 1
-						m.Setting.Lock()
-						f, ok := m.Setting.Files[m.GetHashString()]
-						if ok {
-							// update renamed name
-							m.Name = f.Name
-						}
-						m.Setting.Unlock()
 					}
 					fInfo.Stop()
 				}
