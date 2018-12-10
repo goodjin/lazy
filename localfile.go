@@ -8,6 +8,7 @@ import (
 	"log"
 	"os"
 	"regexp"
+	"strconv"
 	"strings"
 	"sync"
 	"syscall"
@@ -59,19 +60,23 @@ func NewFileExInfo(name string, freader *FileReader) (*FileExInfo, error) {
 		fInfo.Inode, fInfo.Device = GetFileExInfo(fstat)
 	}
 	fInfo.exitChan = make(chan int)
+	fInfo.offsize = 0
 	fInfo.IsEOF = false
 	return fInfo, err
 }
 func (m *FileExInfo) ReadLoop() {
-	if m.Setting.ReadAll {
-		m.offsize, _ = m.fd.Seek(0, io.SeekStart)
-	} else {
-		m.offsize, _ = m.fd.Seek(0, io.SeekEnd)
+	if m.offsize == 0 {
+		if m.Setting.ReadAll {
+			m.offsize, _ = m.fd.Seek(0, io.SeekStart)
+		} else {
+			m.offsize, _ = m.fd.Seek(0, io.SeekEnd)
+		}
 	}
 	reader := bufio.NewReader(m.fd)
 	for {
 		select {
 		case <-m.exitChan:
+			m.offsize, _ = m.fd.Seek(0, io.SeekCurrent)
 			return
 		default:
 			m.offsize, _ = m.fd.Seek(0, io.SeekCurrent)
@@ -131,6 +136,7 @@ func (fs FileExInfo) Stop() {
 type FileReader struct {
 	sync.Mutex
 	Files       map[string]*FileExInfo
+	LastStats   map[string]int64
 	msgChan     chan *map[string][]byte
 	refreshChan chan int
 	FileList    string
@@ -153,14 +159,12 @@ func NewFileReader(config map[string]string) (*FileReader, error) {
 		m.ReadAll = true
 	}
 	err := m.GetFiles()
-	if err == nil {
-		m.ReadAll = true
-	}
 	go func() {
 		ticker := time.Tick(time.Minute)
 		for {
 			select {
 			case <-ticker:
+				m.ReadAll = true
 				go m.GetFiles()
 			case <-m.refreshChan:
 				go m.GetFiles()
@@ -171,7 +175,23 @@ func NewFileReader(config map[string]string) (*FileReader, error) {
 	}()
 	return m, err
 }
+func (m *FileReader) GetLastInfo() {
+	statfile, err := os.Open("./.lazystatus")
+	if err == nil {
+		content, err := ioutil.ReadAll(statfile)
+		if err == nil {
+			lines := strings.Split(string(content), "\n")
+			for _, line := range lines {
+				items := strings.Split(line, " ")
+				if len(items) == 2 {
+					m.LastStats[items[0]], _ = strconv.ParseInt(items[1], 10, 64)
+				}
+			}
+		}
+	}
+	statfile.Close()
 
+}
 func (m *FileReader) GetFiles() error {
 	tokens := strings.Split(m.FileList, "/")
 	fileName := tokens[len(tokens)-1]
@@ -196,6 +216,10 @@ func (m *FileReader) GetFiles() error {
 		} else {
 			m.Files[exactFile.GetHashString()] = exactFile
 			log.Println("start reading", exactFile.Name)
+			if offsize, ok := m.LastStats[exactFile.GetHashString()]; ok {
+				exactFile.offsize = offsize
+				delete(m.LastStats, exactFile.GetHashString())
+			}
 			go exactFile.ReadLoop()
 		}
 	} else {
@@ -221,6 +245,10 @@ func (m *FileReader) GetFiles() error {
 				}
 				m.Files[fInfo.GetHashString()] = fInfo
 				log.Println("start reading", fInfo.Name)
+				if offsize, ok := m.LastStats[fInfo.GetHashString()]; ok {
+					fInfo.offsize = offsize
+					delete(m.LastStats, exactFile.GetHashString())
+				}
 				go fInfo.ReadLoop()
 			}
 		}
@@ -238,9 +266,15 @@ func (m *FileReader) GetFiles() error {
 }
 func (m *FileReader) Stop() {
 	close(m.exitChan)
+	statfile, err := os.OpenFile("./.lazystatus", os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		log.Fatal("failed to open log file")
+	}
+	defer statfile.Close()
 	m.Lock()
 	for _, file := range m.Files {
 		file.Stop()
+		fmt.Fprintf(statfile, "%s %d\n", file.GetHashString(), file.offsize)
 	}
 	m.Unlock()
 }
