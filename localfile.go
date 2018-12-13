@@ -100,8 +100,8 @@ func (m *FileExInfo) ReadLoop() {
 					} else {
 						offset, _ := fInfo.fd.Seek(0, io.SeekEnd)
 						if offset < m.offsize {
-							m.offsize = offset
-							m.fd.Seek(m.offsize, io.SeekStart)
+							m.offsize = 0
+							m.fd.Seek(0, io.SeekStart)
 							reader = bufio.NewReader(m.fd)
 							break
 						}
