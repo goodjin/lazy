@@ -154,6 +154,9 @@ func (t *LogProccessTask) Run() {
 					}
 				}
 			}
+			if err != nil && err.Error() == "ignore" {
+				break
+			}
 			parsedMsgChan <- rst
 		case <-t.exitChan:
 			return
