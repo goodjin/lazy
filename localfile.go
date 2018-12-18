@@ -139,6 +139,7 @@ type FileReader struct {
 	LastStats   map[string]int64
 	msgChan     chan *map[string][]byte
 	Name        string
+	StatusDir   string
 	refreshChan chan int
 	FileList    string
 	ReadAll     bool
@@ -160,6 +161,10 @@ func NewFileReader(config map[string]string) (*FileReader, error) {
 		m.ReadAll = true
 	}
 	m.Name = config["Name"]
+	m.StatusDir = config["StatusDir"]
+	if len(m.StatusDir) == 0 {
+		m.StatusDir = "/tmp"
+	}
 	err := m.GetFiles()
 	go func() {
 		ticker := time.Tick(time.Minute)
@@ -178,7 +183,7 @@ func NewFileReader(config map[string]string) (*FileReader, error) {
 	return m, err
 }
 func (m *FileReader) GetLastInfo() {
-	statfile, err := os.Open(fmt.Sprintf("./.%slazystatus", m.Name))
+	statfile, err := os.Open(fmt.Sprintf("%s/.%slazystatus", m.StatusDir, m.Name))
 	if err == nil {
 		content, err := ioutil.ReadAll(statfile)
 		if err == nil {
@@ -268,7 +273,7 @@ func (m *FileReader) GetFiles() error {
 }
 func (m *FileReader) Stop() {
 	close(m.exitChan)
-	statfile, err := os.OpenFile(fmt.Sprintf("./.%slazystatus", m.Name), os.O_CREATE|os.O_WRONLY, 0644)
+	statfile, err := os.OpenFile(fmt.Sprintf("%s/.%slazystatus", m.StatusDir, m.Name), os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
 		log.Fatal("failed to open log file")
 	}
