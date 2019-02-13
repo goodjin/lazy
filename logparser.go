@@ -21,6 +21,9 @@ func (l *LogParser) Handle(msg *map[string][]byte) (*map[string]interface{}, err
 	var err error
 	switch l.LogType {
 	case "rfc3164":
+		if len(string((*msg)["msg"])) == 0 {
+			return &data, fmt.Errorf("bad format")
+		}
 		p := rfc3164.NewParser((*msg)["msg"])
 		location, err := time.LoadLocation(l.TimeZone)
 		if err == nil {

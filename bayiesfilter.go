@@ -66,6 +66,9 @@ func (p *BayiesFilter) Handle(msg *map[string]interface{}) (*map[string]interfac
 	if p.c == nil {
 		return msg, fmt.Errorf("no bayies config")
 	}
+	if len(message.(string)) == 0 {
+		return msg, fmt.Errorf("ignore")
+	}
 	words := p.parseWords(message.(string))
 	_, likely, strict := p.c.LogScores(words)
 	if strict {
