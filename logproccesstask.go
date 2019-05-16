@@ -85,6 +85,8 @@ func NewLogProcessTask(name string, config []byte) (*LogProccessTask, error) {
 			logProcessTask.Filters[k] = NewGeoIP2Filter(v)
 		case "lstm":
 			logProcessTask.Filters[k] = NewLSTMFilter(v)
+		case "ipinfo":
+			logProcessTask.Filters[k] = NewIPinfoFilter(v)
 		}
 	}
 	var err error
