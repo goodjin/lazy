@@ -36,7 +36,7 @@ func NewIPinfoFilter(config map[string]string) *IPinfoFilter {
 	}
 	configFile.Close()
 	var settings map[string]string
-	if err := json.Unmarshal(body, settings); err != nil {
+	if err := json.Unmarshal(body, &settings); err != nil {
 		return rf
 	}
 	for k, v := range settings {
