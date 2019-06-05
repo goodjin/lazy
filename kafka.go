@@ -41,7 +41,16 @@ func NewKafkaReader(config map[string]string) (*KafkaReader, error) {
 		kafkaConfig.Net.SASL.Password = config["Password"]
 	}
 	var err error
+	if len(config["KafkaVersion"]) > 0 {
+		kafkaConfig.Version, err = sarama.ParseKafkaVersion(config["KafkaVersion"])
+		if err != nil {
+			return m, err
+		}
+	}
 	m.consumer, err = cluster.NewConsumer(brokers, config["ConsumerGroup"], topics, kafkaConfig)
+	if err != nil {
+		return m, err
+	}
 	go m.ReadLoop()
 	log.Println("start consumer for topic", config["Topics"])
 	return m, err
@@ -132,7 +141,16 @@ func NewKafkaWriter(config map[string]string) (*KafkaWriter, error) {
 		kafkaConfig.Net.SASL.User = config["User"]
 		kafkaConfig.Net.SASL.Password = config["Password"]
 	}
+	if len(config["KafkaVersion"]) > 0 {
+		kafkaConfig.Version, err = sarama.ParseKafkaVersion(config["KafkaVersion"])
+		if err != nil {
+			return kafkaWriter, err
+		}
+	}
 	kafkaWriter.producer, err = sarama.NewAsyncProducer(strings.Split(config["KafkaBrokers"], ","), kafkaConfig)
+	if err != nil {
+		return kafkaWriter, err
+	}
 	return kafkaWriter, err
 }
 
