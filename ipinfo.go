@@ -4,9 +4,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/zmap/go-iptree/iptree"
-	"strings"
 	"io/ioutil"
 	"os"
+	"strings"
 )
 
 // config json
