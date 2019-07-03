@@ -275,7 +275,7 @@ func (m *FileReader) Stop() {
 	close(m.exitChan)
 	statfile, err := os.OpenFile(fmt.Sprintf("%s/.%slazystatus", m.StatusDir, m.Name), os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
-		log.Fatal("failed to open log file")
+		log.Println("failed to open log file", err)
 	}
 	defer statfile.Close()
 	m.Lock()
