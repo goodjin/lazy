@@ -54,7 +54,7 @@ func NewBayiesFilter(config map[string]string) *BayiesFilter {
 		},
 		[]string{"method", "status"},
 	)
-	// Register LDAP status
+	// Register status
 	prometheus.Register(bf.metricstatus)
 	return bf
 }
