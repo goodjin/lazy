@@ -3,10 +3,11 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/zmap/go-iptree/iptree"
 	"io/ioutil"
 	"os"
 	"strings"
+
+	"github.com/zmap/go-iptree/iptree"
 )
 
 // config json

@@ -2,9 +2,11 @@ package main
 
 import (
 	"encoding/json"
-	"github.com/hashicorp/consul/api"
 	"io/ioutil"
 	"os"
+
+	"github.com/hashicorp/consul/api"
+	"github.com/prometheus/client_golang/prometheus"
 )
 
 type LazyConfig struct {
@@ -12,6 +14,7 @@ type LazyConfig struct {
 	Datacenter    string `json:"Datacenter"`
 	Token         string `json:"ConsulToken"`
 	ConsulKey     string `json:"ConsulKey"`
+	MetricAddr    string `json:"MetricAddr"`
 	client        *api.Client
 }
 
@@ -27,6 +30,9 @@ func ReadConfig(file string) (*LazyConfig, error) {
 	if err := json.Unmarshal(config, setting); err != nil {
 		return nil, err
 	}
+	if setting.MetricAddr == "" {
+		setting.MetricAddr = "0.0.0.0:7080"
+	}
 	return setting, err
 }
 
@@ -36,6 +42,7 @@ func (m *LazyConfig) InitConfig() error {
 	config.Datacenter = m.Datacenter
 	config.Token = m.Token
 	var err error
+	prometheus.MustRegister(prometheus.NewBuildInfoCollector())
 	m.client, err = api.NewClient(config)
 	return err
 }

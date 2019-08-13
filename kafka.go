@@ -2,12 +2,14 @@ package main
 
 import (
 	"fmt"
-	"github.com/Shopify/sarama"
-	cluster "github.com/bsm/sarama-cluster"
 	"log"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/Shopify/sarama"
+	cluster "github.com/bsm/sarama-cluster"
+	"github.com/prometheus/client_golang/prometheus"
 )
 
 // config
@@ -21,9 +23,10 @@ import (
 // }
 
 type KafkaReader struct {
-	consumer *cluster.Consumer
-	exitChan chan int
-	msgChan  chan *map[string][]byte
+	consumer     *cluster.Consumer
+	exitChan     chan int
+	msgChan      chan *map[string][]byte
+	metricstatus *prometheus.CounterVec
 }
 
 func NewKafkaReader(config map[string]string) (*KafkaReader, error) {
@@ -53,6 +56,15 @@ func NewKafkaReader(config map[string]string) (*KafkaReader, error) {
 	}
 	go m.ReadLoop()
 	log.Println("start consumer for topic", config["Topics"])
+	m.metricstatus = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "kafka_consumer",
+			Help: "kafka consumer status.",
+		},
+		[]string{"method"},
+	)
+	// Register status
+	prometheus.Register(m.metricstatus)
 	return m, err
 }
 
@@ -60,6 +72,7 @@ func (m *KafkaReader) ReadLoop() {
 	// consume errors
 	go func() {
 		for err := range m.consumer.Errors() {
+			m.metricstatus.WithLabelValues("err_count").Inc()
 			log.Printf("Error: %s\n", err.Error())
 		}
 	}()
@@ -67,6 +80,7 @@ func (m *KafkaReader) ReadLoop() {
 	// consume notifications
 	go func() {
 		for ntf := range m.consumer.Notifications() {
+			m.metricstatus.WithLabelValues("notification").Inc()
 			log.Printf("Rebalanced: %+v\n", ntf)
 		}
 	}()
@@ -79,6 +93,7 @@ func (m *KafkaReader) ReadLoop() {
 				logmsg["msg"] = msg.Value
 				m.msgChan <- &logmsg
 				m.consumer.MarkOffset(msg, "")
+				m.metricstatus.WithLabelValues("message_count").Inc()
 			}
 		case <-m.exitChan:
 			m.consumer.Close()
@@ -89,6 +104,7 @@ func (m *KafkaReader) ReadLoop() {
 }
 
 func (m *KafkaReader) Stop() {
+	prometheus.Unregister(m.metricstatus)
 	close(m.exitChan)
 }
 func (m *KafkaReader) GetMsgChan() chan *map[string][]byte {
@@ -107,9 +123,10 @@ func (m *KafkaReader) GetMsgChan() chan *map[string][]byte {
 // }
 
 type KafkaWriter struct {
-	producer sarama.AsyncProducer
-	Topic    string
-	exitChan chan int
+	producer     sarama.AsyncProducer
+	Topic        string
+	exitChan     chan int
+	metricstatus *prometheus.CounterVec
 }
 
 func NewKafkaWriter(config map[string]string) (*KafkaWriter, error) {
@@ -151,11 +168,21 @@ func NewKafkaWriter(config map[string]string) (*KafkaWriter, error) {
 	if err != nil {
 		return kafkaWriter, err
 	}
+	kafkaWriter.metricstatus = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "kafka_producer",
+			Help: "kafka producer status.",
+		},
+		[]string{"method"},
+	)
+	// Register status
+	prometheus.Register(kafkaWriter.metricstatus)
 	return kafkaWriter, err
 }
 
 func (kafkaWriter *KafkaWriter) Stop() {
 	close(kafkaWriter.exitChan)
+	prometheus.Unregister(kafkaWriter.metricstatus)
 }
 
 func (kafkaWriter *KafkaWriter) Start(dataChan chan *map[string]interface{}) {
@@ -167,6 +194,7 @@ func (kafkaWriter *KafkaWriter) Start(dataChan chan *map[string]interface{}) {
 			return
 		case logmsg := <-dataChan:
 			kafkaWriter.producer.Input() <- &sarama.ProducerMessage{Topic: kafkaWriter.Topic, Key: nil, Value: sarama.StringEncoder((*logmsg)["rawmsg"].(string))}
+			kafkaWriter.metricstatus.WithLabelValues("message_count").Inc()
 		case err := <-kafkaWriter.producer.Errors():
 			if err != nil {
 				fmt.Println(err.Err)

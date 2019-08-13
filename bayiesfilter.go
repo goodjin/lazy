@@ -2,9 +2,11 @@ package main
 
 import (
 	"fmt"
-	"github.com/jbrukh/bayesian"
 	"regexp"
 	"strings"
+
+	"github.com/jbrukh/bayesian"
+	"github.com/prometheus/client_golang/prometheus"
 )
 
 // config json
@@ -20,6 +22,7 @@ type BayiesFilter struct {
 	WordSplitRegexp string `json:"WordSplitRegexp,omitempty"`
 	wordSplit       *regexp.Regexp
 	c               *bayesian.Classifier
+	metricstatus    *prometheus.CounterVec
 	classifiers     []string
 }
 
@@ -44,6 +47,15 @@ func NewBayiesFilter(config map[string]string) *BayiesFilter {
 		values := strings.Split(config[k], ",")
 		bf.c.Learn(values, c)
 	}
+	bf.metricstatus = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "bayies_filter",
+			Help: "bayies filter status.",
+		},
+		[]string{"method", "status"},
+	)
+	// Register LDAP status
+	prometheus.Register(bf.metricstatus)
 	return bf
 }
 
@@ -73,8 +85,10 @@ func (p *BayiesFilter) Handle(msg *map[string]interface{}) (*map[string]interfac
 	_, likely, strict := p.c.LogScores(words)
 	if strict {
 		(*msg)[fmt.Sprintf("%s_BayesCheck", p.KeyToFilter)] = p.classifiers[likely]
+		p.metricstatus.WithLabelValues("bayies_filter", p.classifiers[likely]).Inc()
 	}
 	return msg, nil
 }
 func (p *BayiesFilter) Cleanup() {
+	prometheus.Unregister(p.metricstatus)
 }

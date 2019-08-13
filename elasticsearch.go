@@ -3,11 +3,13 @@ package main
 import (
 	"context"
 	"fmt"
-	"github.com/olivere/elastic"
 	"log"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/olivere/elastic"
+	"github.com/prometheus/client_golang/prometheus"
 )
 
 // config
@@ -23,6 +25,7 @@ type ElasticSearchWriter struct {
 	Type          string
 	bulkProcessor *elastic.BulkProcessor
 	exitChan      chan int
+	metricstatus  *prometheus.GaugeVec
 }
 
 func NewElasitcSearchWriter(config map[string]string) (*ElasticSearchWriter, error) {
@@ -41,6 +44,17 @@ func NewElasitcSearchWriter(config map[string]string) (*ElasticSearchWriter, err
 	es.exitChan = make(chan int)
 	es.Type = config["IndexType"]
 	es.bulkProcessor, err = client.BulkProcessor().FlushInterval(10 * time.Second).Workers(es.tasksCount).After(es.afterFn).Stats(true).Do(context.Background())
+	es.metricstatus = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Namespace: "elasticsearch",
+			Subsystem: "producer",
+			Name:      "bulk_processor",
+			Help:      "elsticsearch producer status.",
+		},
+		[]string{"opt"},
+	)
+	// Register status
+	prometheus.Register(es.metricstatus)
 	return es, err
 }
 
@@ -52,6 +66,7 @@ func (es *ElasticSearchWriter) afterFn(executionID int64, requests []elastic.Bul
 	}
 }
 func (es *ElasticSearchWriter) Stop() {
+	prometheus.Unregister(es.metricstatus)
 	close(es.exitChan)
 }
 
@@ -64,6 +79,7 @@ func (es *ElasticSearchWriter) Start(dataChan chan *map[string]interface{}) {
 		case <-ticker:
 			yy, mm, dd := time.Now().Date()
 			indexName = fmt.Sprintf("%s-%d.%d.%d", es.IndexPerfix, yy, mm, dd)
+			es.Stats()
 		case msg := <-dataChan:
 			indexObject := elastic.NewBulkIndexRequest().Doc(msg).Type(es.Type)
 			es.bulkProcessor.Add(indexObject.Index(indexName))
@@ -75,19 +91,17 @@ func (es *ElasticSearchWriter) Start(dataChan chan *map[string]interface{}) {
 	}
 }
 
-func (es *ElasticSearchWriter) Stats() map[string]int64 {
+func (es *ElasticSearchWriter) Stats() {
 	stats := es.bulkProcessor.Stats()
-	rst := make(map[string]int64)
-	rst["Flushed"] = stats.Flushed
-	rst["Committed"] = stats.Committed
-	rst["Indexed"] = stats.Indexed
-	rst["Created"] = stats.Created
-	rst["Updated"] = stats.Updated
-	rst["Deleted"] = stats.Deleted
-	rst["Succeeded"] = stats.Succeeded
-	rst["Failed"] = stats.Failed
+	es.metricstatus.WithLabelValues("Flushed").Set(float64(stats.Flushed))
+	es.metricstatus.WithLabelValues("Committed").Set(float64(stats.Committed))
+	es.metricstatus.WithLabelValues("Indexed").Set(float64(stats.Indexed))
+	es.metricstatus.WithLabelValues("Created").Set(float64(stats.Created))
+	es.metricstatus.WithLabelValues("Updated").Set(float64(stats.Updated))
+	es.metricstatus.WithLabelValues("Deleted").Set(float64(stats.Deleted))
+	es.metricstatus.WithLabelValues("Succeeded").Set(float64(stats.Succeeded))
+	es.metricstatus.WithLabelValues("Failed").Set(float64(stats.Failed))
 	for i, w := range stats.Workers {
-		rst[fmt.Sprintf("worker%d_queued", i)] = w.Queued
+		es.metricstatus.WithLabelValues(fmt.Sprintf("worker%d_queued", i)).Set(float64(w.Queued))
 	}
-	return rst
 }

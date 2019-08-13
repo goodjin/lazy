@@ -3,10 +3,11 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/jeromer/syslogparser/rfc3164"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/jeromer/syslogparser/rfc3164"
 )
 
 type LogParser struct {

@@ -2,8 +2,9 @@ package main
 
 import (
 	"fmt"
-	"github.com/oschwald/geoip2-golang"
 	"net"
+
+	"github.com/oschwald/geoip2-golang"
 )
 
 // config json

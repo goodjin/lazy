@@ -4,11 +4,14 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"net/http"
 	"os"
 	"os/signal"
 	"runtime"
 	"syscall"
 	"time"
+
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 var (
@@ -30,6 +33,8 @@ func main() {
 	signal.Notify(termchan, syscall.SIGINT, syscall.SIGTERM)
 	taskPool := NewTaskPool()
 	topicsKey := fmt.Sprintf("%s/tasks", logTaskConfig.ConsulKey)
+	http.Handle("/metrics", promhttp.Handler())
+	go http.ListenAndServe(logTaskConfig.MetricAddr, nil)
 	taskParallel := runtime.NumCPU() / 2
 	if taskParallel < 2 {
 		taskParallel = 2
