@@ -2,7 +2,9 @@ package main
 
 import (
 	"fmt"
+
 	mqtt "github.com/eclipse/paho.mqtt.golang"
+	"github.com/prometheus/client_golang/prometheus"
 )
 
 // config
@@ -17,9 +19,10 @@ import (
 // }
 
 type MQTTReader struct {
-	client  mqtt.Client
-	Topic   string
-	msgChan chan *map[string][]byte
+	client       mqtt.Client
+	Topic        string
+	msgChan      chan *map[string][]byte
+	metricstatus *prometheus.CounterVec
 }
 
 func NewMQTTReader(config map[string]string) (*MQTTReader, error) {
@@ -42,6 +45,15 @@ func NewMQTTReader(config map[string]string) (*MQTTReader, error) {
 		return m, token.Error()
 	}
 	fmt.Println(config["Name"], "mqtt reader is started")
+	m.metricstatus = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "mqtt_consumer",
+			Help: "mqtt reader status.",
+		},
+		[]string{"count"},
+	)
+	// Register status
+	prometheus.Register(m.metricstatus)
 	return m, nil
 }
 func (m *MQTTReader) HandleDate(client mqtt.Client, msg mqtt.Message) {
@@ -53,6 +65,7 @@ func (m *MQTTReader) HandleDate(client mqtt.Client, msg mqtt.Message) {
 	logmsg := make(map[string][]byte)
 	logmsg["msg"] = []byte(fmt.Sprintf("%s %s", topic, payload))
 	m.msgChan <- &logmsg
+	m.metricstatus.WithLabelValues("message").Inc()
 }
 func (m *MQTTReader) onConnect(client mqtt.Client) {
 	if token := m.client.Subscribe(m.Topic, byte(0), nil); token.Wait() && token.Error() != nil {
@@ -61,6 +74,7 @@ func (m *MQTTReader) onConnect(client mqtt.Client) {
 }
 func (m *MQTTReader) Stop() {
 	m.client.Disconnect(1)
+	prometheus.Unregister(m.metricstatus)
 }
 func (m *MQTTReader) onLost(client mqtt.Client, err error) {
 	fmt.Println(err, m.Topic)
