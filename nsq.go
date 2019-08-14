@@ -2,12 +2,14 @@ package main
 
 import (
 	"fmt"
-	"github.com/golang/protobuf/proto"
-	"github.com/nsqio/go-nsq"
 	"log"
 	"os"
 	"strconv"
 	"strings"
+
+	"github.com/golang/protobuf/proto"
+	"github.com/nsqio/go-nsq"
+	"github.com/prometheus/client_golang/prometheus"
 )
 
 // config
@@ -22,9 +24,10 @@ import (
 // }
 
 type NSQReader struct {
-	consumer  *nsq.Consumer
-	msgFormat string
-	msgChan   chan *map[string][]byte
+	consumer     *nsq.Consumer
+	msgFormat    string
+	msgChan      chan *map[string][]byte
+	metricstatus *prometheus.CounterVec
 }
 
 func NewNSQReader(config map[string]string) (*NSQReader, error) {
@@ -48,6 +51,15 @@ func NewNSQReader(config map[string]string) (*NSQReader, error) {
 	lookupds := strings.Split(config["LookupdAddresses"], ",")
 	err = m.consumer.ConnectToNSQLookupds(lookupds)
 	fmt.Println(config["Name"], "nsq reader is started")
+	m.metricstatus = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "nsq_consumer",
+			Help: "nsq reader status.",
+		},
+		[]string{"format", "status"},
+	)
+	// Register status
+	prometheus.Register(m.metricstatus)
 	return m, err
 }
 
@@ -59,6 +71,7 @@ func (m *NSQReader) HandleMessage(msg *nsq.Message) error {
 		err := proto.Unmarshal(msg.Body, &logFormat)
 		if err != nil {
 			log.Println("proto unmarshal", err, string(msg.Body))
+			m.metricstatus.WithLabelValues("protobuf", "failed").Inc()
 			return nil
 		}
 		logmsg["msg"] = []byte(logFormat.GetRawmsg())
@@ -66,8 +79,10 @@ func (m *NSQReader) HandleMessage(msg *nsq.Message) error {
 		if len(logmsg) < 1 {
 			return nil
 		}
+		m.metricstatus.WithLabelValues("protobuf", "ok").Inc()
 	default:
 		logmsg["msg"] = msg.Body
+		m.metricstatus.WithLabelValues("raw", "ok").Inc()
 	}
 	m.msgChan <- &logmsg
 	return nil
@@ -75,6 +90,7 @@ func (m *NSQReader) HandleMessage(msg *nsq.Message) error {
 
 func (m *NSQReader) Stop() {
 	m.consumer.Stop()
+	prometheus.Unregister(m.metricstatus)
 }
 func (m *NSQReader) GetMsgChan() chan *map[string][]byte {
 	return m.msgChan
@@ -89,10 +105,11 @@ func (m *NSQReader) GetMsgChan() chan *map[string][]byte {
 // }
 
 type NSQWriter struct {
-	producer  *nsq.Producer
-	Topic     string
-	BatchSize int
-	exitChan  chan int
+	producer     *nsq.Producer
+	Topic        string
+	BatchSize    int
+	exitChan     chan int
+	metricstatus *prometheus.CounterVec
 }
 
 func NewNSQWriter(config map[string]string) (*NSQWriter, error) {
@@ -107,6 +124,15 @@ func NewNSQWriter(config map[string]string) (*NSQWriter, error) {
 	}
 	nsqWriter.exitChan = make(chan int)
 	nsqWriter.producer, err = nsq.NewProducer(config["NSQAddress"], cfg)
+	nsqWriter.metricstatus = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "nsq_producer",
+			Help: "nsq producer status.",
+		},
+		[]string{"method"},
+	)
+	// Register status
+	prometheus.Register(nsqWriter.metricstatus)
 	return nsqWriter, err
 }
 
@@ -114,6 +140,7 @@ func (nsqWriter *NSQWriter) Stop() {
 	nsqWriter.producer.Stop()
 	close(nsqWriter.exitChan)
 	log.Println("exit nsq producer")
+	prometheus.Unregister(nsqWriter.metricstatus)
 }
 
 func (nsqWriter *NSQWriter) Start(dataChan chan *map[string]interface{}) {
@@ -131,8 +158,10 @@ func (nsqWriter *NSQWriter) Start(dataChan chan *map[string]interface{}) {
 				}
 				nsqWriter.producer.MultiPublish(nsqWriter.Topic, body)
 				body = body[:0]
+				nsqWriter.metricstatus.WithLabelValues("multipublish").Inc()
 			} else {
 				nsqWriter.producer.Publish(nsqWriter.Topic, []byte(item))
+				nsqWriter.metricstatus.WithLabelValues("publish").Inc()
 			}
 		}
 	}
