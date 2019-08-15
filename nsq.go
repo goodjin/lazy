@@ -34,6 +34,15 @@ func NewNSQReader(config map[string]string) (*NSQReader, error) {
 	m := &NSQReader{}
 	m.msgChan = make(chan *map[string][]byte)
 	m.msgFormat = config["MessageFormat"]
+	m.metricstatus = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "nsq_consumer",
+			Help: "nsq reader status.",
+		},
+		[]string{"format", "status"},
+	)
+	// Register status
+	prometheus.Register(m.metricstatus)
 	cfg := nsq.NewConfig()
 	hostname, err := os.Hostname()
 	if err != nil {
@@ -51,15 +60,6 @@ func NewNSQReader(config map[string]string) (*NSQReader, error) {
 	lookupds := strings.Split(config["LookupdAddresses"], ",")
 	err = m.consumer.ConnectToNSQLookupds(lookupds)
 	fmt.Println(config["Name"], "nsq reader is started")
-	m.metricstatus = prometheus.NewCounterVec(
-		prometheus.CounterOpts{
-			Name: "nsq_consumer",
-			Help: "nsq reader status.",
-		},
-		[]string{"format", "status"},
-	)
-	// Register status
-	prometheus.Register(m.metricstatus)
 	return m, err
 }
 
@@ -122,8 +122,6 @@ func NewNSQWriter(config map[string]string) (*NSQWriter, error) {
 	if config["CompressionType"] != "" {
 		cfg.Set(config["CompressionType"], true)
 	}
-	nsqWriter.exitChan = make(chan int)
-	nsqWriter.producer, err = nsq.NewProducer(config["NSQAddress"], cfg)
 	nsqWriter.metricstatus = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
 			Name: "nsq_producer",
@@ -133,6 +131,8 @@ func NewNSQWriter(config map[string]string) (*NSQWriter, error) {
 	)
 	// Register status
 	prometheus.Register(nsqWriter.metricstatus)
+	nsqWriter.exitChan = make(chan int)
+	nsqWriter.producer, err = nsq.NewProducer(config["NSQAddress"], cfg)
 	return nsqWriter, err
 }
 
