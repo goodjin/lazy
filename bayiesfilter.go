@@ -90,5 +90,4 @@ func (p *BayiesFilter) Handle(msg *map[string]interface{}) (*map[string]interfac
 	return msg, nil
 }
 func (p *BayiesFilter) Cleanup() {
-	prometheus.Unregister(p.metricstatus)
 }

@@ -80,5 +80,4 @@ func (rf *RegexpFilter) Handle(msg *map[string]interface{}) (*map[string]interfa
 }
 
 func (rf *RegexpFilter) Cleanup() {
-	prometheus.Unregister(rf.metricstatus)
 }
