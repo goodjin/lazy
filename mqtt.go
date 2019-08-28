@@ -74,6 +74,7 @@ func (m *MQTTReader) onConnect(client mqtt.Client) {
 }
 func (m *MQTTReader) Stop() {
 	m.client.Disconnect(1)
+	prometheus.Unregister(m.metricstatus)
 }
 func (m *MQTTReader) onLost(client mqtt.Client, err error) {
 	fmt.Println(err, m.Topic)

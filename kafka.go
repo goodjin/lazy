@@ -104,6 +104,7 @@ func (m *KafkaReader) ReadLoop() {
 }
 
 func (m *KafkaReader) Stop() {
+	prometheus.Unregister(m.metricstatus)
 	close(m.exitChan)
 }
 func (m *KafkaReader) GetMsgChan() chan *map[string][]byte {
@@ -181,6 +182,7 @@ func NewKafkaWriter(config map[string]string) (*KafkaWriter, error) {
 
 func (kafkaWriter *KafkaWriter) Stop() {
 	close(kafkaWriter.exitChan)
+	prometheus.Unregister(kafkaWriter.metricstatus)
 }
 
 func (kafkaWriter *KafkaWriter) Start(dataChan chan *map[string]interface{}) {

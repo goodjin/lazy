@@ -66,6 +66,7 @@ func (es *ElasticSearchWriter) afterFn(executionID int64, requests []elastic.Bul
 	}
 }
 func (es *ElasticSearchWriter) Stop() {
+	prometheus.Unregister(es.metricstatus)
 	close(es.exitChan)
 }
 

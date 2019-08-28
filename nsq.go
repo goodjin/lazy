@@ -90,6 +90,7 @@ func (m *NSQReader) HandleMessage(msg *nsq.Message) error {
 
 func (m *NSQReader) Stop() {
 	m.consumer.Stop()
+	prometheus.Unregister(m.metricstatus)
 }
 func (m *NSQReader) GetMsgChan() chan *map[string][]byte {
 	return m.msgChan
@@ -139,6 +140,7 @@ func (nsqWriter *NSQWriter) Stop() {
 	nsqWriter.producer.Stop()
 	close(nsqWriter.exitChan)
 	log.Println("exit nsq producer")
+	prometheus.Unregister(nsqWriter.metricstatus)
 }
 
 func (nsqWriter *NSQWriter) Start(dataChan chan *map[string]interface{}) {
