@@ -47,8 +47,9 @@ func NewMQTTReader(config map[string]string) (*MQTTReader, error) {
 	fmt.Println(config["Name"], "mqtt reader is started")
 	m.metricstatus = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
-			Name: "mqtt_consumer",
-			Help: "mqtt reader status.",
+			Subsystem: "lazy_intput",
+			Name:      "mqtt_consumer",
+			Help:      "mqtt reader status.",
 		},
 		[]string{"count"},
 	)

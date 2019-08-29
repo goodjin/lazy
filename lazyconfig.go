@@ -33,6 +33,7 @@ func ReadConfig(file string) (*LazyConfig, error) {
 	if setting.MetricAddr == "" {
 		setting.MetricAddr = "0.0.0.0:7080"
 	}
+	prometheus.MustRegister(prometheus.NewBuildInfoCollector())
 	return setting, err
 }
 
@@ -42,7 +43,6 @@ func (m *LazyConfig) InitConfig() error {
 	config.Datacenter = m.Datacenter
 	config.Token = m.Token
 	var err error
-	prometheus.MustRegister(prometheus.NewBuildInfoCollector())
 	m.client, err = api.NewClient(config)
 	return err
 }

@@ -36,8 +36,9 @@ func NewNSQReader(config map[string]string) (*NSQReader, error) {
 	m.msgFormat = config["MessageFormat"]
 	m.metricstatus = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
-			Name: "nsq_consumer",
-			Help: "nsq reader status.",
+			Subsystem: "lazy_input",
+			Name:      "nsq_consumer",
+			Help:      "nsq reader status.",
 		},
 		[]string{"format", "status"},
 	)
@@ -124,8 +125,9 @@ func NewNSQWriter(config map[string]string) (*NSQWriter, error) {
 	}
 	nsqWriter.metricstatus = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
-			Name: "nsq_producer",
-			Help: "nsq producer status.",
+			Subsystem: "lazy_output",
+			Name:      "nsq_producer",
+			Help:      "nsq producer status.",
 		},
 		[]string{"method"},
 	)

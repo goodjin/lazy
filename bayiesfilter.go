@@ -49,8 +49,9 @@ func NewBayiesFilter(config map[string]string) *BayiesFilter {
 	}
 	bf.metricstatus = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
-			Name: "bayies_filter",
-			Help: "bayies filter status.",
+			Subsystem: "lazy_filter",
+			Name:      "bayies",
+			Help:      "bayies filter status.",
 		},
 		[]string{"method", "status"},
 	)

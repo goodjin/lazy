@@ -265,6 +265,7 @@ func (m *FileReader) GetFiles() error {
 			if v.IsEOF {
 				m.Files[v.GetHashString()].Stop()
 				delete(m.Files, v.GetHashString())
+				log.Println("Close File", m.Files[v.GetHashString()].Name)
 			}
 		}
 	}

@@ -58,8 +58,9 @@ func NewKafkaReader(config map[string]string) (*KafkaReader, error) {
 	log.Println("start consumer for topic", config["Topics"])
 	m.metricstatus = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
-			Name: "kafka_consumer",
-			Help: "kafka consumer status.",
+			Subsystem: "lazy_input",
+			Name:      "kafka_consumer",
+			Help:      "kafka consumer status.",
 		},
 		[]string{"method"},
 	)
@@ -170,8 +171,9 @@ func NewKafkaWriter(config map[string]string) (*KafkaWriter, error) {
 	}
 	kafkaWriter.metricstatus = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
-			Name: "kafka_producer",
-			Help: "kafka producer status.",
+			Subsystem: "lazy_output",
+			Name:      "kafka_producer",
+			Help:      "kafka producer status.",
 		},
 		[]string{"method"},
 	)

@@ -46,8 +46,9 @@ func NewRegexpFilter(config map[string]string) *RegexpFilter {
 	}
 	rf.metricstatus = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
-			Name: "regexp_filter",
-			Help: "regexp filter status.",
+			Subsystem: "lazy_filter",
+			Name:      "regexp",
+			Help:      "regexp filter status.",
 		},
 		[]string{"rule", "count"},
 	)
