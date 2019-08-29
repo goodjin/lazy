@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"strings"
 	"sync"
 )
 
@@ -75,7 +76,9 @@ func NewLogProcessTask(name string, config []byte) (*LogProccessTask, error) {
 	logProcessTask.Name = name
 	logProcessTask.exitChan = make(chan int)
 	logProcessTask.Filters = make(map[string]Filter)
+	taskname := strings.ReplaceAll(name, "-", "_")
 	for k, v := range logProcessTask.FilterSettings {
+		v["Taskname"] = taskname
 		switch v["Type"] {
 		case "bayies":
 			logProcessTask.Filters[k] = NewBayiesFilter(v)
@@ -89,6 +92,7 @@ func NewLogProcessTask(name string, config []byte) (*LogProccessTask, error) {
 			logProcessTask.Filters[k] = NewIPinfoFilter(v)
 		}
 	}
+	logProcessTask.InputSetting["Taskname"] = taskname
 	var err error
 	switch logProcessTask.InputSetting["Type"] {
 	case "nsq":
@@ -114,6 +118,7 @@ func NewLogProcessTask(name string, config []byte) (*LogProccessTask, error) {
 	default:
 		return nil, fmt.Errorf("not supported data source")
 	}
+	logProcessTask.OutputSetting["Taskname"] = taskname
 	switch logProcessTask.OutputSetting["Type"] {
 	case "elasticsearch":
 		logProcessTask.Output, err = NewElasitcSearchWriter(logProcessTask.OutputSetting)

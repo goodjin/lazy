@@ -48,7 +48,7 @@ func NewElasitcSearchWriter(config map[string]string) (*ElasticSearchWriter, err
 		prometheus.GaugeOpts{
 			Namespace: "elasticsearch",
 			Subsystem: "bulk_processor",
-			Name:      fmt.Sprintf("task_%s", config["IndexPerfix"]),
+			Name:      config["Taskname"],
 			Help:      "elsticsearch producer status.",
 		},
 		[]string{"opt"},
