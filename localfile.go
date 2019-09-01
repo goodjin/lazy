@@ -264,8 +264,8 @@ func (m *FileReader) GetFiles() error {
 		if _, ok := fileMap[v.GetHashString()]; !ok {
 			if v.IsEOF {
 				m.Files[v.GetHashString()].Stop()
-				delete(m.Files, v.GetHashString())
 				log.Println("Close File", m.Files[v.GetHashString()].Name)
+				delete(m.Files, v.GetHashString())
 			}
 		}
 	}
