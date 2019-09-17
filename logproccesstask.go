@@ -90,6 +90,8 @@ func NewLogProcessTask(name string, config []byte) (*LogProccessTask, error) {
 			logProcessTask.Filters[k] = NewLSTMFilter(v)
 		case "ipinfo":
 			logProcessTask.Filters[k] = NewIPinfoFilter(v)
+		case "sample":
+			logProcessTask.Filters[k] = NewSampleFilter(v)
 		}
 	}
 	logProcessTask.InputSetting["Taskname"] = taskname
