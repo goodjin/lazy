@@ -31,9 +31,9 @@ func NewSampleFilter(config map[string]string) *SampleFilter {
 func (rf *SampleFilter) Handle(msg *map[string]interface{}) (*map[string]interface{}, error) {
 	atomic.AddInt64(&rf.count, 1)
 	if atomic.LoadInt64(&rf.count) < int64(rf.SampleRateMod) {
-		atomic.StoreInt64(&rf.count, 0)
 		return msg, fmt.Errorf("ignore")
 	}
+	atomic.StoreInt64(&rf.count, 0)
 	return msg, nil
 }
 
