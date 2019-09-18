@@ -2,9 +2,8 @@ package main
 
 import (
 	"fmt"
-	"math/rand"
 	"strconv"
-	"time"
+	"sync/atomic"
 )
 
 // config json
@@ -13,7 +12,7 @@ import (
 // }
 
 type SampleFilter struct {
-	seed          *rand.Rand
+	count         int64
 	SampleRateMod int `json:"SampleRateMod"`
 }
 
@@ -25,13 +24,14 @@ func NewSampleFilter(config map[string]string) *SampleFilter {
 	rf := &SampleFilter{
 		SampleRateMod: rate,
 	}
-	rf.seed = rand.New(rand.NewSource(time.Now().Unix()))
+	rf.count = 0
 	return rf
 }
 
 func (rf *SampleFilter) Handle(msg *map[string]interface{}) (*map[string]interface{}, error) {
-	current := rf.seed.Int()
-	if current%rf.SampleRateMod > 0 {
+	atomic.AddInt64(&rf.count, 1)
+	if atomic.LoadInt64(&rf.count) < int64(rf.SampleRateMod) {
+		atomic.StoreInt64(&rf.count, 0)
 		return msg, fmt.Errorf("ignore")
 	}
 	return msg, nil
