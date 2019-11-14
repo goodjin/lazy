@@ -16,11 +16,13 @@ import (
 // "File":"./info.json"
 // }
 
+// IPinfoFilter for ip address info
 type IPinfoFilter struct {
 	KeyToFilter string `json:"KeyToFilter"`
 	IPTree      *iptree.IPTree
 }
 
+// NewIPinfoFilter create IPinfoFilter
 func NewIPinfoFilter(config map[string]string) *IPinfoFilter {
 	rf := &IPinfoFilter{
 		KeyToFilter: config["KeyToFilter"],
@@ -46,9 +48,11 @@ func NewIPinfoFilter(config map[string]string) *IPinfoFilter {
 	return rf
 }
 
+// Cleanup remove all
 func (rf *IPinfoFilter) Cleanup() {
 }
 
+// Handle msg
 func (rf *IPinfoFilter) Handle(msg *map[string]interface{}) (*map[string]interface{}, error) {
 	info, ok := (*msg)[rf.KeyToFilter].(string)
 	if !ok {

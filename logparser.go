@@ -10,6 +10,7 @@ import (
 	"github.com/jeromer/syslogparser/rfc3164"
 )
 
+// LogParser log parser
 type LogParser struct {
 	LogType     string            `json:"LogType"`
 	TimeZone    string            `json:"Timezone,omitempty"`
@@ -17,6 +18,7 @@ type LogParser struct {
 	TokenFormat map[string]string `json:"TokenFormat,omitempty"`
 }
 
+// Handle convert log
 func (l *LogParser) Handle(msg *map[string][]byte) (*map[string]interface{}, error) {
 	data := make(map[string]interface{})
 	var err error

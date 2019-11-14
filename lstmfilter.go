@@ -19,6 +19,7 @@ import (
 // "ModelFile":"./models.m"
 // }
 
+// LSTMFilter lstm filter
 type LSTMFilter struct {
 	vocabSize       int
 	model           *lstm.Model
@@ -31,6 +32,7 @@ type LSTMFilter struct {
 	ModelFile       string `json:"ModelFile"`
 }
 
+// NewLSTMFilter create LSTMFilter
 func NewLSTMFilter(config map[string]string) *LSTMFilter {
 	lstmfilter := &LSTMFilter{
 		VocabularyFile: config["VocabularyFile"],
@@ -62,24 +64,25 @@ func (lstmfilter *LSTMFilter) newVocabulary() error {
 	i := 0
 	lstmfilter.vocabularyTable = make(map[rune]int)
 	for {
-		if c, _, err := r.ReadRune(); err != nil {
-			if err == io.EOF {
-				break
-			}
-			return err
-		} else {
+		c, _, err := r.ReadRune()
+		if err == nil {
 			if _, ok := lstmfilter.vocabularyTable[c]; !ok {
 				lstmfilter.vocabularyTable[c] = i
 				lstmfilter.vocabulary = append(lstmfilter.vocabulary, c)
 				i++
 			}
+		} else {
+			if err == io.EOF {
+				break
+			}
+			return err
 		}
 	}
 	lstmfilter.vocabSize = len(lstmfilter.vocabulary)
 	return nil
 }
 
-// file mode
+// RecoverModel read modle from file
 func (lstmfilter *LSTMFilter) RecoverModel() error {
 	f, err := os.OpenFile(lstmfilter.ModelFile, os.O_RDWR|os.O_CREATE, 0644)
 	body, err := ioutil.ReadAll(f)
@@ -105,6 +108,7 @@ func (lstmfilter *LSTMFilter) indexToRune(i int) (rune, error) {
 	return lstmfilter.vocabulary[i], nil
 }
 
+// Handle lstm predict msg
 func (lstmfilter *LSTMFilter) Handle(msg *map[string]interface{}) (*map[string]interface{}, error) {
 	var rawmsg string
 	for _, v := range *msg {
@@ -133,5 +137,6 @@ func (lstmfilter *LSTMFilter) Handle(msg *map[string]interface{}) (*map[string]i
 	return msg, nil
 }
 
+// Cleanup clean all
 func (lstmfilter *LSTMFilter) Cleanup() {
 }

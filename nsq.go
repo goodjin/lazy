@@ -23,6 +23,7 @@ import (
 // "Type":"elasticsearch"
 // }
 
+// NSQReader nsq reader
 type NSQReader struct {
 	consumer     *nsq.Consumer
 	msgFormat    string
@@ -30,6 +31,7 @@ type NSQReader struct {
 	metricstatus *prometheus.CounterVec
 }
 
+// NewNSQReader create NSQReader
 func NewNSQReader(config map[string]string) (*NSQReader, error) {
 	m := &NSQReader{}
 	m.msgChan = make(chan *map[string][]byte)
@@ -64,6 +66,7 @@ func NewNSQReader(config map[string]string) (*NSQReader, error) {
 	return m, err
 }
 
+// HandleMessage handle msg
 func (m *NSQReader) HandleMessage(msg *nsq.Message) error {
 	var logFormat LogFormat
 	logmsg := make(map[string][]byte)
@@ -89,10 +92,13 @@ func (m *NSQReader) HandleMessage(msg *nsq.Message) error {
 	return nil
 }
 
+// Stop close all
 func (m *NSQReader) Stop() {
 	m.consumer.Stop()
 	prometheus.Unregister(m.metricstatus)
 }
+
+// GetMsgChan return msgChan
 func (m *NSQReader) GetMsgChan() chan *map[string][]byte {
 	return m.msgChan
 }
@@ -105,6 +111,7 @@ func (m *NSQReader) GetMsgChan() chan *map[string][]byte {
 // "BatchSize":"20"
 // }
 
+// NSQWriter nsq writer
 type NSQWriter struct {
 	producer     *nsq.Producer
 	Topic        string
@@ -113,6 +120,7 @@ type NSQWriter struct {
 	metricstatus *prometheus.CounterVec
 }
 
+// NewNSQWriter create NSQWriter
 func NewNSQWriter(config map[string]string) (*NSQWriter, error) {
 	nsqWriter := &NSQWriter{}
 	nsqWriter.Topic = config["Topic"]
@@ -138,6 +146,7 @@ func NewNSQWriter(config map[string]string) (*NSQWriter, error) {
 	return nsqWriter, err
 }
 
+// Stop close all
 func (nsqWriter *NSQWriter) Stop() {
 	nsqWriter.producer.Stop()
 	close(nsqWriter.exitChan)
@@ -145,6 +154,7 @@ func (nsqWriter *NSQWriter) Stop() {
 	prometheus.Unregister(nsqWriter.metricstatus)
 }
 
+// Start run task
 func (nsqWriter *NSQWriter) Start(dataChan chan *map[string]interface{}) {
 	var body [][]byte
 	for {

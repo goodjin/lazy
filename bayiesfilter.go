@@ -16,6 +16,8 @@ import (
 // "good":"a,b,c",
 // "bad":"c,d,e",
 // }
+
+// BayiesFilter bayies filter
 type BayiesFilter struct {
 	KeyToFilter     string `json:"KeyToFilter"`
 	WordSplitRegexp string `json:"WordSplitRegexp,omitempty"`
@@ -24,6 +26,7 @@ type BayiesFilter struct {
 	classifiers     []string
 }
 
+// NewBayiesFilter create new BayiesFilter
 func NewBayiesFilter(config map[string]string) *BayiesFilter {
 	bf := &BayiesFilter{
 		KeyToFilter:     config["KeyToFilter"],
@@ -62,6 +65,7 @@ func (p *BayiesFilter) parseWords(msg string) []string {
 	return tokens
 }
 
+// Handle handle msg
 func (p *BayiesFilter) Handle(msg *map[string]interface{}) (*map[string]interface{}, error) {
 	message := (*msg)[p.KeyToFilter]
 	if p.c == nil {
@@ -77,5 +81,7 @@ func (p *BayiesFilter) Handle(msg *map[string]interface{}) (*map[string]interfac
 	}
 	return msg, nil
 }
+
+// Cleanup close all
 func (p *BayiesFilter) Cleanup() {
 }

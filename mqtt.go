@@ -18,6 +18,7 @@ import (
 // "Type":"mqtt"
 // }
 
+// MQTTReader mqtt reader
 type MQTTReader struct {
 	client       mqtt.Client
 	Topic        string
@@ -25,6 +26,7 @@ type MQTTReader struct {
 	metricstatus *prometheus.CounterVec
 }
 
+// NewMQTTReader create MQTTReader
 func NewMQTTReader(config map[string]string) (*MQTTReader, error) {
 	m := &MQTTReader{}
 	m.msgChan = make(chan *map[string][]byte)
@@ -57,6 +59,8 @@ func NewMQTTReader(config map[string]string) (*MQTTReader, error) {
 	prometheus.Register(m.metricstatus)
 	return m, nil
 }
+
+// HandleDate handle msg
 func (m *MQTTReader) HandleDate(client mqtt.Client, msg mqtt.Message) {
 	payload := msg.Payload()
 	if string(payload) == "Connected" {
@@ -73,6 +77,8 @@ func (m *MQTTReader) onConnect(client mqtt.Client) {
 		fmt.Println(token.Error())
 	}
 }
+
+// Stop close all
 func (m *MQTTReader) Stop() {
 	m.client.Disconnect(1)
 	prometheus.Unregister(m.metricstatus)
@@ -80,6 +86,8 @@ func (m *MQTTReader) Stop() {
 func (m *MQTTReader) onLost(client mqtt.Client, err error) {
 	fmt.Println(err, m.Topic)
 }
+
+// GetMsgChan return channel
 func (m *MQTTReader) GetMsgChan() chan *map[string][]byte {
 	return m.msgChan
 }

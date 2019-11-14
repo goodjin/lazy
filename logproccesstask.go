@@ -17,6 +17,7 @@ import (
 // "FilterSettings":{"regexp":{},"bayies":{}},
 // }
 
+// LogProccessTask log procceser
 type LogProccessTask struct {
 	Name          string
 	InputSetting  map[string]string `json:"Input"`
@@ -34,21 +35,25 @@ type LogProccessTask struct {
 	exitChan   chan int
 }
 
+// Filter msg filter
 type Filter interface {
 	Handle(msg *map[string]interface{}) (*map[string]interface{}, error)
 	Cleanup()
 }
 
+// DataSource msg source
 type DataSource interface {
 	Stop()
 	GetMsgChan() chan *map[string][]byte
 }
 
+// DataSink msg dest
 type DataSink interface {
 	Stop()
 	Start(msgChan chan *map[string]interface{})
 }
 
+// Stop stop proccess task
 func (t *LogProccessTask) Stop() {
 	close(t.exitChan)
 	t.Input.Stop()
@@ -58,14 +63,17 @@ func (t *LogProccessTask) Stop() {
 	t.Output.Stop()
 }
 
+// GetName get task name
 func (t *LogProccessTask) GetName() string {
 	return t.Name
 }
 
+// DetailInfo return config
 func (t *LogProccessTask) DetailInfo() []byte {
 	return t.configInfo
 }
 
+// NewLogProcessTask create LogProcessTask
 func NewLogProcessTask(name string, config []byte) (*LogProccessTask, error) {
 	logProcessTask := &LogProccessTask{}
 	if err := json.Unmarshal(config, logProcessTask); err != nil {
@@ -143,6 +151,7 @@ func NewLogProcessTask(name string, config []byte) (*LogProccessTask, error) {
 	return logProcessTask, nil
 }
 
+// Run start task
 func (t *LogProccessTask) Run() {
 	msgChan := t.Input.GetMsgChan()
 	parsedMsgChan := make(chan *map[string]interface{})
@@ -173,6 +182,7 @@ func (t *LogProccessTask) Run() {
 	}
 }
 
+// IsGoodConfig check task config
 func (t *LogProccessTask) IsGoodConfig(config []byte) bool {
 	logProcessTask := &LogProccessTask{}
 	if err := json.Unmarshal(config, logProcessTask); err != nil {

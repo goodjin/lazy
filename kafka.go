@@ -22,6 +22,7 @@ import (
 // "Type":"kafka"
 // }
 
+// KafkaReader reader
 type KafkaReader struct {
 	consumer     *cluster.Consumer
 	exitChan     chan int
@@ -29,6 +30,7 @@ type KafkaReader struct {
 	metricstatus *prometheus.CounterVec
 }
 
+// NewKafkaReader create KafkaReader
 func NewKafkaReader(config map[string]string) (*KafkaReader, error) {
 	m := &KafkaReader{}
 	m.msgChan = make(chan *map[string][]byte)
@@ -71,6 +73,7 @@ func NewKafkaReader(config map[string]string) (*KafkaReader, error) {
 	return m, err
 }
 
+// ReadLoop read msg from kafka
 func (m *KafkaReader) ReadLoop() {
 	// consume errors
 	go func() {
@@ -106,10 +109,13 @@ func (m *KafkaReader) ReadLoop() {
 	}
 }
 
+// Stop stop tasks
 func (m *KafkaReader) Stop() {
 	prometheus.Unregister(m.metricstatus)
 	close(m.exitChan)
 }
+
+// GetMsgChan return msgChan
 func (m *KafkaReader) GetMsgChan() chan *map[string][]byte {
 	return m.msgChan
 }
@@ -125,6 +131,7 @@ func (m *KafkaReader) GetMsgChan() chan *map[string][]byte {
 // "Type":"kafka"
 // }
 
+// KafkaWriter writer
 type KafkaWriter struct {
 	producer     sarama.AsyncProducer
 	Topic        string
@@ -132,6 +139,7 @@ type KafkaWriter struct {
 	metricstatus *prometheus.CounterVec
 }
 
+// NewKafkaWriter create KafkaWriter
 func NewKafkaWriter(config map[string]string) (*KafkaWriter, error) {
 	kafkaWriter := &KafkaWriter{}
 	kafkaWriter.Topic = config["Topic"]
@@ -184,11 +192,13 @@ func NewKafkaWriter(config map[string]string) (*KafkaWriter, error) {
 	return kafkaWriter, err
 }
 
+// Stop writer tasks
 func (kafkaWriter *KafkaWriter) Stop() {
 	close(kafkaWriter.exitChan)
 	prometheus.Unregister(kafkaWriter.metricstatus)
 }
 
+// Start run writer
 func (kafkaWriter *KafkaWriter) Start(dataChan chan *map[string]interface{}) {
 	for {
 		select {
@@ -201,7 +211,7 @@ func (kafkaWriter *KafkaWriter) Start(dataChan chan *map[string]interface{}) {
 			kafkaWriter.metricstatus.WithLabelValues("message_count").Inc()
 		case err := <-kafkaWriter.producer.Errors():
 			if err != nil {
-				fmt.Println(err.Err)
+				log.Println(err.Err)
 			}
 		}
 	}

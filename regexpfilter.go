@@ -13,6 +13,7 @@ import (
 // "ignore":"a,b,c",
 // }
 
+// RegexpFilter regexp filter
 type RegexpFilter struct {
 	HashKey       string            `json:"HashKey"`
 	KeyToFilter   string            `json:"KeyToFilter"`
@@ -21,6 +22,7 @@ type RegexpFilter struct {
 	regexpList    map[string]*regexp.Regexp
 }
 
+// NewRegexpFilter create RegexpFilter
 func NewRegexpFilter(config map[string]string) *RegexpFilter {
 	rf := &RegexpFilter{
 		KeyToFilter: config["KeyToFilter"],
@@ -44,6 +46,7 @@ func NewRegexpFilter(config map[string]string) *RegexpFilter {
 	return rf
 }
 
+// Handle filter messages
 func (rf *RegexpFilter) Handle(msg *map[string]interface{}) (*map[string]interface{}, error) {
 	message := (*msg)[rf.KeyToFilter]
 	var hashkey string
@@ -65,5 +68,6 @@ func (rf *RegexpFilter) Handle(msg *map[string]interface{}) (*map[string]interfa
 	return msg, nil
 }
 
+// Cleanup remove all
 func (rf *RegexpFilter) Cleanup() {
 }

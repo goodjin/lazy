@@ -4,6 +4,7 @@ import (
 	"sync"
 )
 
+// Worker interface for worker
 type Worker interface {
 	Stop()
 	DetailInfo() []byte
@@ -11,11 +12,13 @@ type Worker interface {
 	IsGoodConfig(config []byte) bool
 }
 
+// TaskPool worker list
 type TaskPool struct {
 	sync.Mutex
 	workers map[string]Worker
 }
 
+// Join add worker to taskpool
 func (t *TaskPool) Join(w Worker) {
 	t.Lock()
 	if _, ok := t.workers[w.GetName()]; !ok {
@@ -24,6 +27,7 @@ func (t *TaskPool) Join(w Worker) {
 	t.Unlock()
 }
 
+// IsStarted check task started or not
 func (t *TaskPool) IsStarted(id string) bool {
 	t.Lock()
 	if _, ok := t.workers[id]; !ok {
@@ -33,6 +37,8 @@ func (t *TaskPool) IsStarted(id string) bool {
 	t.Unlock()
 	return true
 }
+
+// Cleanup remove all
 func (t *TaskPool) Cleanup(list map[string]string) {
 	t.Lock()
 	for k, v := range t.workers {
@@ -50,10 +56,13 @@ func (t *TaskPool) Cleanup(list map[string]string) {
 	}
 	t.Unlock()
 }
+
+// NewTaskPool create TaskPool
 func NewTaskPool() *TaskPool {
 	return &TaskPool{workers: make(map[string]Worker)}
 }
 
+// Stop close all
 func (t *TaskPool) Stop() {
 	t.Lock()
 	for _, w := range t.workers {

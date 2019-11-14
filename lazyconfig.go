@@ -9,6 +9,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 )
 
+// LazyConfig lazy config info
 type LazyConfig struct {
 	ConsulAddress string `json:"ConsulAddress"`
 	Datacenter    string `json:"Datacenter"`
@@ -37,6 +38,7 @@ func ReadConfig(file string) (*LazyConfig, error) {
 	return setting, err
 }
 
+// InitConfig init config
 func (m *LazyConfig) InitConfig() error {
 	config := api.DefaultConfig()
 	config.Address = m.ConsulAddress
@@ -47,6 +49,7 @@ func (m *LazyConfig) InitConfig() error {
 	return err
 }
 
+// ReadConfigFromConsul read config from consul
 func (m *LazyConfig) ReadConfigFromConsul(key string) (map[string]string, error) {
 	consulSetting := make(map[string]string)
 	kv := m.client.KV()

@@ -13,6 +13,7 @@ import (
 // "ipdb":"(.*)"
 // }
 
+// GeoIP2Filter ip geo query
 type GeoIP2Filter struct {
 	KeyToFilter string `json:"KeyToFilter"`
 	db          *geoip2.Reader
@@ -20,6 +21,8 @@ type GeoIP2Filter struct {
 
 // todo add function to auto update database from remote addr
 // example: download from s3
+
+// NewGeoIP2Filter create GeoIP2Filter
 func NewGeoIP2Filter(config map[string]string) *GeoIP2Filter {
 	rf := &GeoIP2Filter{
 		KeyToFilter: config["KeyToFilter"],
@@ -32,6 +35,7 @@ func NewGeoIP2Filter(config map[string]string) *GeoIP2Filter {
 	return rf
 }
 
+// Cleanup remove all
 func (geo *GeoIP2Filter) Cleanup() {
 	geo.db.Close()
 }
@@ -55,6 +59,8 @@ func (geo *GeoIP2Filter) Cleanup() {
      "longitude" : 121.3997
    },
 */
+
+// Handle msg
 func (geo *GeoIP2Filter) Handle(msg *map[string]interface{}) (*map[string]interface{}, error) {
 	ipaddr, ok := (*msg)[geo.KeyToFilter].(string)
 	if !ok {

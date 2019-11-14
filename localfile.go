@@ -22,6 +22,7 @@ import (
 // "Type":"file"
 // }
 
+// FileExInfo file info
 type FileExInfo struct {
 	fd       *os.File
 	Setting  *FileReader
@@ -33,20 +34,24 @@ type FileExInfo struct {
 	Device   uint64 `json:"Device"`
 }
 
+// GetFileExInfo get file's exinfo
 func GetFileExInfo(info os.FileInfo) (uint64, uint64) {
 	stat := info.Sys().(*syscall.Stat_t)
 
 	return uint64(stat.Ino), uint64(stat.Dev)
 }
 
+// IsSame check file is same or not
 func (fs FileExInfo) IsSame(fInfo FileExInfo) bool {
 	return fs.Inode == fInfo.Inode && fs.Device == fInfo.Device
 }
 
+// GetHashString get file's hash from file's exinfo
 func (fs FileExInfo) GetHashString() string {
 	return fmt.Sprintf("%d:%d", fs.Inode, fs.Device)
 }
 
+// NewFileExInfo get file's exinfo from file name
 func NewFileExInfo(name string, freader *FileReader) (*FileExInfo, error) {
 	fInfo := &FileExInfo{Name: name}
 	fInfo.Setting = freader
@@ -64,45 +69,47 @@ func NewFileExInfo(name string, freader *FileReader) (*FileExInfo, error) {
 	fInfo.IsEOF = false
 	return fInfo, err
 }
-func (m *FileExInfo) ReadLoop() {
-	if m.offsize == 0 {
-		if m.Setting.ReadAll {
-			m.offsize, _ = m.fd.Seek(0, io.SeekStart)
+
+// ReadLoop read task
+func (fs *FileExInfo) ReadLoop() {
+	if fs.offsize == 0 {
+		if fs.Setting.ReadAll {
+			fs.offsize, _ = fs.fd.Seek(0, io.SeekStart)
 		} else {
-			m.offsize, _ = m.fd.Seek(0, io.SeekEnd)
+			fs.offsize, _ = fs.fd.Seek(0, io.SeekEnd)
 		}
 	}
-	reader := bufio.NewReader(m.fd)
+	reader := bufio.NewReader(fs.fd)
 	for {
 		select {
-		case <-m.exitChan:
-			m.offsize, _ = m.fd.Seek(0, io.SeekCurrent)
+		case <-fs.exitChan:
+			fs.offsize, _ = fs.fd.Seek(0, io.SeekCurrent)
 			return
 		default:
-			m.offsize, _ = m.fd.Seek(0, io.SeekCurrent)
+			fs.offsize, _ = fs.fd.Seek(0, io.SeekCurrent)
 			line, err := reader.ReadBytes('\n')
 			if err != nil && err != io.EOF {
 				fmt.Println(err)
 				if len(line) > 0 {
-					m.fd.Seek(m.offsize, io.SeekStart)
+					fs.fd.Seek(fs.offsize, io.SeekStart)
 				}
 				time.Sleep(time.Second)
 				break
 			}
 			if err == io.EOF {
 				// check same name is rename or not
-				fInfo, err := NewFileExInfo(m.Name, m.Setting)
+				fInfo, err := NewFileExInfo(fs.Name, fs.Setting)
 				if err == nil {
-					if !m.IsSame(*fInfo) {
+					if !fs.IsSame(*fInfo) {
 						// renamed
-						m.IsEOF = true
-						m.Setting.refreshChan <- 1
+						fs.IsEOF = true
+						fs.Setting.refreshChan <- 1
 					} else {
 						offset, _ := fInfo.fd.Seek(0, io.SeekEnd)
-						if offset < m.offsize {
-							m.offsize = 0
-							m.fd.Seek(0, io.SeekStart)
-							reader = bufio.NewReader(m.fd)
+						if offset < fs.offsize {
+							fs.offsize = 0
+							fs.fd.Seek(0, io.SeekStart)
+							reader = bufio.NewReader(fs.fd)
 							break
 						}
 					}
@@ -114,8 +121,8 @@ func (m *FileExInfo) ReadLoop() {
 				}
 				if line[len(line)-1] != byte('\n') {
 					// reset readline
-					m.fd.Seek(m.offsize, io.SeekStart)
-					reader = bufio.NewReader(m.fd)
+					fs.fd.Seek(fs.offsize, io.SeekStart)
+					reader = bufio.NewReader(fs.fd)
 					time.Sleep(time.Second)
 					break
 				}
@@ -123,16 +130,19 @@ func (m *FileExInfo) ReadLoop() {
 			if len(line) > 0 {
 				logmsg := make(map[string][]byte)
 				logmsg["msg"] = line
-				m.Setting.msgChan <- &logmsg
+				fs.Setting.msgChan <- &logmsg
 			}
 		}
 	}
 }
+
+// Stop all
 func (fs FileExInfo) Stop() {
 	close(fs.exitChan)
 	fs.fd.Close()
 }
 
+// FileReader read file
 type FileReader struct {
 	sync.Mutex
 	Files       map[string]*FileExInfo
@@ -146,6 +156,7 @@ type FileReader struct {
 	exitChan    chan int
 }
 
+// NewFileReader create FileReader
 func NewFileReader(config map[string]string) (*FileReader, error) {
 	m := &FileReader{}
 	m.exitChan = make(chan int)
@@ -182,6 +193,8 @@ func NewFileReader(config map[string]string) (*FileReader, error) {
 	}()
 	return m, err
 }
+
+// GetLastInfo get info from disk
 func (m *FileReader) GetLastInfo() {
 	statfile, err := os.Open(fmt.Sprintf("%s/.%slazystatus", m.StatusDir, m.Name))
 	if err == nil {
@@ -199,6 +212,8 @@ func (m *FileReader) GetLastInfo() {
 	statfile.Close()
 
 }
+
+// GetFiles get files
 func (m *FileReader) GetFiles() error {
 	tokens := strings.Split(m.FileList, "/")
 	fileName := tokens[len(tokens)-1]
@@ -272,6 +287,8 @@ func (m *FileReader) GetFiles() error {
 	m.Unlock()
 	return nil
 }
+
+// Stop stop tasks
 func (m *FileReader) Stop() {
 	close(m.exitChan)
 	statfile, err := os.OpenFile(fmt.Sprintf("%s/.%slazystatus", m.StatusDir, m.Name), os.O_CREATE|os.O_WRONLY, 0644)
@@ -286,6 +303,8 @@ func (m *FileReader) Stop() {
 	}
 	m.Unlock()
 }
+
+// GetMsgChan return msgChan
 func (m *FileReader) GetMsgChan() chan *map[string][]byte {
 	return m.msgChan
 }
