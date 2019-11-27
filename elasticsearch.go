@@ -135,9 +135,10 @@ func (es *ElasticSearchWriter) Start(dataChan chan *map[string]interface{}) {
 			es.FlushTimeout = true
 		case msg := <-dataChan:
 			data, _ := json.Marshal(msg)
-			buf.Grow(len(meta) + len(data))
+			buf.Grow(len(meta) + len(data) + 1)
 			buf.Write(meta)
 			buf.Write(data)
+			buf.Write([]byte("\n"))
 			count++
 		retry:
 			if count > es.BulkCount || es.FlushTimeout {
