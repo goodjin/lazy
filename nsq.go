@@ -162,17 +162,17 @@ func (nsqWriter *NSQWriter) Start(dataChan chan *map[string]interface{}) {
 		case <-nsqWriter.exitChan:
 			return
 		case logmsg := <-dataChan:
-			item := (*logmsg)["rawmsg"].(string)
+			item := (*logmsg)["rawmsg"].([]byte)
 			if nsqWriter.BatchSize > 1 {
 				if len(body) < nsqWriter.BatchSize {
-					body = append(body, []byte(item))
+					body = append(body, item)
 					break
 				}
 				nsqWriter.producer.MultiPublish(nsqWriter.Topic, body)
 				body = body[:0]
 				nsqWriter.metricstatus.WithLabelValues("multipublish").Inc()
 			} else {
-				nsqWriter.producer.Publish(nsqWriter.Topic, []byte(item))
+				nsqWriter.producer.Publish(nsqWriter.Topic, item)
 				nsqWriter.metricstatus.WithLabelValues("publish").Inc()
 			}
 		}
