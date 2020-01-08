@@ -6,12 +6,6 @@ MAKEFLAGS = -s
 all:
 	go build
 
-webui:
-	go build webui.go classifier.go utils.go logtag.go logformat.go
-
-learner:
-	go build bayeslearner.go learner.go utils.go
-
 fmt:
 	go fmt
 

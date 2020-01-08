@@ -147,6 +147,7 @@ func (es *ElasticSearchWriter) Start(dataChan chan *map[string]interface{}) {
 					res, err := es.esClient.Bulk(bytes.NewReader(buf.Bytes()))
 					if err != nil {
 						es.metricstatus.WithLabelValues("Failed").Add(float64(es.BulkCount))
+						log.Println(err)
 						goto retry
 					}
 					if res.IsError() {
@@ -157,6 +158,7 @@ func (es *ElasticSearchWriter) Start(dataChan chan *map[string]interface{}) {
 								raw["error"].(map[string]interface{})["reason"],
 							)
 						}
+						res.Body.Close()
 						es.metricstatus.WithLabelValues("Failed").Add(float64(es.BulkCount))
 						time.Sleep(time.Second)
 						goto retry
@@ -177,6 +179,7 @@ func (es *ElasticSearchWriter) Start(dataChan chan *map[string]interface{}) {
 								raw["error"].(map[string]interface{})["reason"],
 							)
 						}
+						res.Body.Close()
 						es.metricstatus.WithLabelValues("Failed").Add(float64(es.BulkCount))
 						time.Sleep(time.Second)
 						goto retry
