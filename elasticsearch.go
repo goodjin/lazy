@@ -67,6 +67,12 @@ func NewElasitcSearchWriter(config map[string]string) (*ElasticSearchWriter, err
 	var err error
 	hosts := strings.Split(config["ElasticSearchEndPoint"], ",")
 	es := &ElasticSearchWriter{IndexPerfix: config["IndexPerfix"]}
+	if len(config["FlushTimeout"]) < 1 {
+		config["FlushTimeout"] = "5"
+	}
+	if len(config["BulkCount"]) < 1 {
+		config["BulkCount"] = "100"
+	}
 	es.FlushTimeout, err = strconv.Atoi(config["FlushTimeout"])
 	if err != nil {
 		es.FlushTimeout = 5
@@ -118,6 +124,19 @@ func NewElasitcSearchWriter(config map[string]string) (*ElasticSearchWriter, err
 		},
 		[]string{"opt"},
 	)
+	if len(config["Timeout"]) < 1 {
+		config["Timeout"] = "1000"
+	}
+	if len(config["RequestVolumeThreshold"]) < 1 {
+		config["RequestVolumeThreshold"] = "20000"
+	}
+	if len(config["MaxConcurrentRequests"]) < 1 {
+		config["MaxConcurrentRequests"] = "64"
+	}
+	if len(config["ErrorPercentThreshold"]) < 1 {
+		config["ErrorPercentThreshold"] = "25"
+	}
+
 	timeout, err := strconv.Atoi(config["Timeout"])
 	if timeout < 1000 {
 		timeout = 1000
