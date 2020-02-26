@@ -148,14 +148,13 @@ func (es *ElasticSearchWriter) Start(dataChan chan *map[string]interface{}) {
 			buf.Write([]byte("\n"))
 			count++
 		retry:
-			err := hystrix.Do("BulkInsert", func() error {
-				if count > es.BulkCount || es.FlushTimeout {
+			if count > es.BulkCount || es.FlushTimeout {
+				err := hystrix.Do("BulkInsert", func() error {
 					switch es.esVersion {
 					case 6:
 						res, err := es.esClient.Bulk(bytes.NewReader(buf.Bytes()))
 						if err != nil {
 							es.metricstatus.WithLabelValues("Failed").Add(float64(es.BulkCount))
-							log.Println(err)
 							return err
 						}
 						if res.IsError() {
@@ -200,11 +199,11 @@ func (es *ElasticSearchWriter) Start(dataChan chan *map[string]interface{}) {
 					es.FlushTimeout = false
 					buf.Reset()
 					es.metricstatus.WithLabelValues("Flushed").Inc()
+					return nil
+				}, nil)
+				if err != nil {
+					goto retry
 				}
-				return nil
-			}, nil)
-			if err != nil {
-				goto retry
 			}
 		case <-es.exitChan:
 			log.Println("exit elasticsearch")
