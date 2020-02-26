@@ -107,7 +107,7 @@ func NewElasitcSearchWriter(config map[string]string) (*ElasticSearchWriter, err
 	)
 	hystrix.ConfigureCommand("BulkInsert", hystrix.CommandConfig{
 		Timeout:               1000,
-		MaxConcurrentRequests: 100,
+		MaxConcurrentRequests: 10,
 		ErrorPercentThreshold: 25,
 	})
 	// Register status
