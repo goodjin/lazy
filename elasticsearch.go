@@ -22,6 +22,12 @@ import (
 // "TaskCount":"10",
 // "IndexType":"syslog",
 // "Type":"elasticsearch"
+// "FlushTimeout":"5",
+// "BulkCount":"100",
+// "Timeout":"10000",
+// "RequestVolumeThreshold":"20000",
+// "MaxConcurrentRequests":"100",
+// "ErrorPercentThreshold":"25",
 // }
 type ElasticSearchWriter struct {
 	IndexPerfix  string
@@ -30,7 +36,7 @@ type ElasticSearchWriter struct {
 	esClient     *elasticsearch.Client
 	es7Client    *elasticsearch7.Client
 	BulkCount    int
-	FlushTimeout bool
+	FlushTimeout int
 	esVersion    int
 	exitChan     chan int
 	metricstatus *prometheus.CounterVec
@@ -58,13 +64,20 @@ type ElasticSearchWriter struct {
 
 // NewElasitcSearchWriter create new object
 func NewElasitcSearchWriter(config map[string]string) (*ElasticSearchWriter, error) {
+	var err error
 	hosts := strings.Split(config["ElasticSearchEndPoint"], ",")
 	es := &ElasticSearchWriter{IndexPerfix: config["IndexPerfix"]}
-	es.BulkCount = 100
+	es.FlushTimeout, err = strconv.Atoi(config["FlushTimeout"])
+	if err != nil {
+		es.FlushTimeout = 5
+	}
+	es.BulkCount, err = strconv.Atoi(config["BulkCount"])
+	if err != nil {
+		es.BulkCount = 100
+	}
 	cfg := elasticsearch.Config{
 		Addresses: hosts,
 	}
-	var err error
 	es.esClient, err = elasticsearch.NewClient(cfg)
 	if err != nil {
 		log.Println("create elastic client", err)
@@ -105,11 +118,27 @@ func NewElasitcSearchWriter(config map[string]string) (*ElasticSearchWriter, err
 		},
 		[]string{"opt"},
 	)
+	timeout, err := strconv.Atoi(config["Timeout"])
+	if timeout < 1000 {
+		timeout = 1000
+	}
+	requestVolumeThreshold, err := strconv.Atoi(config["RequestVolumeThreshold"])
+	if requestVolumeThreshold < 1 {
+		requestVolumeThreshold = 20000
+	}
+	maxConcurrentRequests, err := strconv.Atoi(config["MaxConcurrentRequests"])
+	if maxConcurrentRequests < 1 {
+		maxConcurrentRequests = 64
+	}
+	errorPercentThreshold, err := strconv.Atoi(config["ErrorPercentThreshold"])
+	if errorPercentThreshold < 1 {
+		errorPercentThreshold = 25
+	}
 	hystrix.ConfigureCommand("BulkInsert", hystrix.CommandConfig{
-		Timeout:                10000,
-		RequestVolumeThreshold: 20000,
-		MaxConcurrentRequests:  100,
-		ErrorPercentThreshold:  25,
+		Timeout:                timeout,
+		RequestVolumeThreshold: requestVolumeThreshold,
+		MaxConcurrentRequests:  maxConcurrentRequests,
+		ErrorPercentThreshold:  errorPercentThreshold,
 	})
 	// Register status
 	prometheus.Register(es.metricstatus)
@@ -125,13 +154,14 @@ func (es *ElasticSearchWriter) Stop() {
 // Start start read/insert data
 func (es *ElasticSearchWriter) Start(dataChan chan *map[string]interface{}) {
 	ticker := time.Tick(time.Second * 60)
-	flushticker := time.Tick(time.Second * 5)
+	flushticker := time.Tick(time.Second * time.Duration(es.FlushTimeout))
 	yy, mm, dd := time.Now().Date()
 	indexName := fmt.Sprintf("%s-%d.%d.%d", es.IndexPerfix, yy, mm, dd)
 	var buf bytes.Buffer
 	count := 0
 	meta := []byte(fmt.Sprintf(`{"index":{"_index":"%s","_type":"%s"}}%s`, indexName, es.Type, "\n"))
 	var raw map[string]interface{}
+	var flushTimeout bool
 	for {
 		select {
 		case <-ticker:
@@ -140,7 +170,7 @@ func (es *ElasticSearchWriter) Start(dataChan chan *map[string]interface{}) {
 			meta = []byte(fmt.Sprintf(`{"index":{"_index":"%s","_type":"%s"}}%s`, indexName, es.Type, "\n"))
 			//es.Stats()
 		case <-flushticker:
-			es.FlushTimeout = true
+			flushTimeout = true
 		case msg := <-dataChan:
 			data, _ := json.Marshal(msg)
 			buf.Grow(len(meta) + len(data) + 1)
@@ -149,7 +179,7 @@ func (es *ElasticSearchWriter) Start(dataChan chan *map[string]interface{}) {
 			buf.Write([]byte("\n"))
 			count++
 		retry:
-			if count > es.BulkCount || es.FlushTimeout {
+			if count > es.BulkCount || flushTimeout {
 				err := hystrix.Do("BulkInsert", func() error {
 					switch es.esVersion {
 					case 6:
@@ -197,7 +227,7 @@ func (es *ElasticSearchWriter) Start(dataChan chan *map[string]interface{}) {
 					default:
 					}
 					count = 0
-					es.FlushTimeout = false
+					flushTimeout = false
 					buf.Reset()
 					es.metricstatus.WithLabelValues("Flushed").Inc()
 					return nil
