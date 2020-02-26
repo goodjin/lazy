@@ -106,9 +106,10 @@ func NewElasitcSearchWriter(config map[string]string) (*ElasticSearchWriter, err
 		[]string{"opt"},
 	)
 	hystrix.ConfigureCommand("BulkInsert", hystrix.CommandConfig{
-		Timeout:               1000,
-		MaxConcurrentRequests: 10,
-		ErrorPercentThreshold: 25,
+		Timeout:                10000,
+		RequestVolumeThreshold: 20000,
+		MaxConcurrentRequests:  100,
+		ErrorPercentThreshold:  25,
 	})
 	// Register status
 	prometheus.Register(es.metricstatus)
@@ -202,6 +203,7 @@ func (es *ElasticSearchWriter) Start(dataChan chan *map[string]interface{}) {
 					return nil
 				}, nil)
 				if err != nil {
+					time.Sleep(time.Second)
 					goto retry
 				}
 			}
