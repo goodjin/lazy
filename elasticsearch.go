@@ -125,7 +125,7 @@ func NewElasitcSearchWriter(config map[string]string) (*ElasticSearchWriter, err
 		[]string{"opt"},
 	)
 	if len(config["Timeout"]) < 1 {
-		config["Timeout"] = "1000"
+		config["Timeout"] = "5000"
 	}
 	if len(config["RequestVolumeThreshold"]) < 1 {
 		config["RequestVolumeThreshold"] = "20000"
@@ -147,13 +147,13 @@ func NewElasitcSearchWriter(config map[string]string) (*ElasticSearchWriter, err
 	}
 	maxConcurrentRequests, err := strconv.Atoi(config["MaxConcurrentRequests"])
 	if maxConcurrentRequests < 1 {
-		maxConcurrentRequests = 64
+		maxConcurrentRequests = 100
 	}
 	errorPercentThreshold, err := strconv.Atoi(config["ErrorPercentThreshold"])
 	if errorPercentThreshold < 1 {
 		errorPercentThreshold = 25
 	}
-	hystrix.ConfigureCommand("BulkInsert", hystrix.CommandConfig{
+	hystrix.ConfigureCommand(fmt.Sprintf("%s_BulkInsert", es.IndexPerfix), hystrix.CommandConfig{
 		Timeout:                timeout,
 		RequestVolumeThreshold: requestVolumeThreshold,
 		MaxConcurrentRequests:  maxConcurrentRequests,
@@ -199,7 +199,7 @@ func (es *ElasticSearchWriter) Start(dataChan chan *map[string]interface{}) {
 			count++
 		retry:
 			if count > es.BulkCount || flushTimeout {
-				err := hystrix.Do("BulkInsert", func() error {
+				err := hystrix.Do(fmt.Sprintf("%s_BulkInsert", es.IndexPerfix), func() error {
 					switch es.esVersion {
 					case 6:
 						res, err := es.esClient.Bulk(bytes.NewReader(buf.Bytes()))
