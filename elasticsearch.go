@@ -73,7 +73,7 @@ func NewElasitcSearchWriter(config map[string]string) (*ElasticSearchWriter, err
 	res, err := es.esClient.Info()
 	if err != nil {
 		log.Printf("Error getting response: %s", err)
-		return es, error
+		return es, err
 	}
 	if res.IsError() {
 		log.Printf("Error: %s", res.String())
