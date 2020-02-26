@@ -2,6 +2,7 @@ module lazy
 
 require (
 	github.com/Shopify/sarama v1.24.1
+	github.com/afex/hystrix-go v0.0.0-20180502004556-fa1af6a1f4f5
 	github.com/asergeyev/nradix v0.0.0-20170505151046-3872ab85bb56 // indirect
 	github.com/bsm/sarama-cluster v2.1.15+incompatible
 	github.com/eclipse/paho.mqtt.golang v1.2.0
@@ -21,6 +22,7 @@ require (
 	github.com/oschwald/maxminddb-golang v1.5.0 // indirect
 	github.com/owulveryck/lstm v0.0.0-20180406085902-1581884e9d2d
 	github.com/prometheus/client_golang v1.2.1
+	github.com/smartystreets/goconvey v1.6.4 // indirect
 	github.com/zmap/go-iptree v0.0.0-20170831022036-1948b1097e25
 	gorgonia.org/gorgonia v0.9.4 // indirect
 	gorgonia.org/tensor v0.9.2 // indirect

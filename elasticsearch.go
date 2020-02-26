@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/afex/hystrix-go/hystrix"
 	elasticsearch "github.com/elastic/go-elasticsearch/v6"
 	elasticsearch7 "github.com/elastic/go-elasticsearch/v7"
 	"github.com/prometheus/client_golang/prometheus"
@@ -103,6 +104,11 @@ func NewElasitcSearchWriter(config map[string]string) (*ElasticSearchWriter, err
 		},
 		[]string{"opt"},
 	)
+	hystrix.ConfigureCommand("BulkInsert", hystrix.CommandConfig{
+		Timeout:               1000,
+		MaxConcurrentRequests: 100,
+		ErrorPercentThreshold: 25,
+	})
 	// Register status
 	prometheus.Register(es.metricstatus)
 	return es, err
@@ -141,57 +147,63 @@ func (es *ElasticSearchWriter) Start(dataChan chan *map[string]interface{}) {
 			buf.Write([]byte("\n"))
 			count++
 		retry:
-			if count > es.BulkCount || es.FlushTimeout {
-				switch es.esVersion {
-				case 6:
-					res, err := es.esClient.Bulk(bytes.NewReader(buf.Bytes()))
-					if err != nil {
-						es.metricstatus.WithLabelValues("Failed").Add(float64(es.BulkCount))
-						log.Println(err)
-						goto retry
-					}
-					if res.IsError() {
-						if err = json.NewDecoder(res.Body).Decode(&raw); err == nil {
-							log.Printf("  Error: [%d] %s: %s",
-								res.StatusCode,
-								raw["error"].(map[string]interface{})["type"],
-								raw["error"].(map[string]interface{})["reason"],
-							)
+			err := hystrix.Do("BulkInsert", func() error {
+				if count > es.BulkCount || es.FlushTimeout {
+					switch es.esVersion {
+					case 6:
+						res, err := es.esClient.Bulk(bytes.NewReader(buf.Bytes()))
+						if err != nil {
+							es.metricstatus.WithLabelValues("Failed").Add(float64(es.BulkCount))
+							log.Println(err)
+							return err
 						}
-						res.Body.Close()
-						es.metricstatus.WithLabelValues("Failed").Add(float64(es.BulkCount))
-						time.Sleep(time.Second)
-						goto retry
-					}
-					es.metricstatus.WithLabelValues("Indexed").Add(float64(es.BulkCount))
-					res.Body.Close()
-				case 7:
-					res, err := es.es7Client.Bulk(bytes.NewReader(buf.Bytes()))
-					if err != nil {
-						es.metricstatus.WithLabelValues("Failed").Add(float64(es.BulkCount))
-						goto retry
-					}
-					if res.IsError() {
-						if err = json.NewDecoder(res.Body).Decode(&raw); err == nil {
-							log.Printf("  Error: [%d] %s: %s",
-								res.StatusCode,
-								raw["error"].(map[string]interface{})["type"],
-								raw["error"].(map[string]interface{})["reason"],
-							)
+						if res.IsError() {
+							if err = json.NewDecoder(res.Body).Decode(&raw); err == nil {
+								log.Printf("  Error: [%d] %s: %s",
+									res.StatusCode,
+									raw["error"].(map[string]interface{})["type"],
+									raw["error"].(map[string]interface{})["reason"],
+								)
+							}
+							res.Body.Close()
+							es.metricstatus.WithLabelValues("Failed").Add(float64(es.BulkCount))
+							time.Sleep(time.Second)
+							return fmt.Errorf("%s", raw["error"].(map[string]interface{})["reason"])
 						}
+						es.metricstatus.WithLabelValues("Indexed").Add(float64(es.BulkCount))
 						res.Body.Close()
-						es.metricstatus.WithLabelValues("Failed").Add(float64(es.BulkCount))
-						time.Sleep(time.Second)
-						goto retry
+					case 7:
+						res, err := es.es7Client.Bulk(bytes.NewReader(buf.Bytes()))
+						if err != nil {
+							es.metricstatus.WithLabelValues("Failed").Add(float64(es.BulkCount))
+							return err
+						}
+						if res.IsError() {
+							if err = json.NewDecoder(res.Body).Decode(&raw); err == nil {
+								log.Printf("  Error: [%d] %s: %s",
+									res.StatusCode,
+									raw["error"].(map[string]interface{})["type"],
+									raw["error"].(map[string]interface{})["reason"],
+								)
+							}
+							res.Body.Close()
+							es.metricstatus.WithLabelValues("Failed").Add(float64(es.BulkCount))
+							time.Sleep(time.Second)
+							return fmt.Errorf("%s", raw["error"].(map[string]interface{})["reason"])
+						}
+						es.metricstatus.WithLabelValues("Indexed").Add(float64(es.BulkCount))
+						res.Body.Close()
+					default:
 					}
-					es.metricstatus.WithLabelValues("Indexed").Add(float64(es.BulkCount))
-					res.Body.Close()
-				default:
+					count = 0
+					es.FlushTimeout = false
+					buf.Reset()
+					es.metricstatus.WithLabelValues("Flushed").Inc()
 				}
-				count = 0
-				es.FlushTimeout = false
-				buf.Reset()
-				es.metricstatus.WithLabelValues("Flushed").Inc()
+				return nil
+			}, nil)
+			if err != nil {
+				goto retry
 			}
 		case <-es.exitChan:
 			log.Println("exit elasticsearch")
