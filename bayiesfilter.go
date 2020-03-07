@@ -27,13 +27,17 @@ type BayiesFilter struct {
 }
 
 // NewBayiesFilter create new BayiesFilter
-func NewBayiesFilter(config map[string]string) *BayiesFilter {
+func NewBayiesFilter(config map[string]string) (*BayiesFilter, error) {
 	bf := &BayiesFilter{
 		KeyToFilter:     config["KeyToFilter"],
 		WordSplitRegexp: config["WordSplitRegexp"],
 	}
+	var err error
 	if len(bf.WordSplitRegexp) > 0 {
-		bf.wordSplit, _ = regexp.CompilePOSIX(bf.WordSplitRegexp)
+		bf.wordSplit, err = regexp.CompilePOSIX(bf.WordSplitRegexp)
+		if err != nil {
+			return bf, err
+		}
 	}
 	var classifierList []bayesian.Class
 	for _, v := range strings.Split(config["Classifiers"], ",") {
@@ -42,13 +46,16 @@ func NewBayiesFilter(config map[string]string) *BayiesFilter {
 		bf.classifiers = append(bf.classifiers, k)
 		classifierList = append(classifierList, c)
 	}
+	if len(bf.classifiers) == 0 {
+		return bf, fmt.Errorf("Classifiers is null")
+	}
 	bf.c = bayesian.NewClassifier(classifierList...)
 	for _, k := range bf.classifiers {
 		c := bayesian.Class(k)
 		values := strings.Split(config[k], ",")
 		bf.c.Learn(values, c)
 	}
-	return bf
+	return bf, nil
 }
 
 func (p *BayiesFilter) parseWords(msg string) []string {

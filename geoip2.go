@@ -23,16 +23,13 @@ type GeoIP2Filter struct {
 // example: download from s3
 
 // NewGeoIP2Filter create GeoIP2Filter
-func NewGeoIP2Filter(config map[string]string) *GeoIP2Filter {
+func NewGeoIP2Filter(config map[string]string) (*GeoIP2Filter, error) {
 	rf := &GeoIP2Filter{
 		KeyToFilter: config["KeyToFilter"],
 	}
 	var err error
 	rf.db, err = geoip2.Open(config["DataBase"])
-	if err != nil {
-		fmt.Println(err)
-	}
-	return rf
+	return rf, err
 }
 
 // Cleanup remove all

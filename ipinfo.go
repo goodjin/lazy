@@ -23,7 +23,7 @@ type IPinfoFilter struct {
 }
 
 // NewIPinfoFilter create IPinfoFilter
-func NewIPinfoFilter(config map[string]string) *IPinfoFilter {
+func NewIPinfoFilter(config map[string]string) (*IPinfoFilter, error) {
 	rf := &IPinfoFilter{
 		KeyToFilter: config["KeyToFilter"],
 	}
@@ -31,21 +31,21 @@ func NewIPinfoFilter(config map[string]string) *IPinfoFilter {
 	var err error
 	configFile, err := os.Open(config["File"])
 	if err != nil {
-		return rf
+		return rf, err
 	}
 	body, err := ioutil.ReadAll(configFile)
 	if err != nil {
-		return rf
+		return rf, err
 	}
 	configFile.Close()
 	var settings map[string]string
 	if err := json.Unmarshal(body, &settings); err != nil {
-		return rf
+		return rf, err
 	}
 	for k, v := range settings {
 		rf.IPTree.AddByString(k, v)
 	}
-	return rf
+	return rf, nil
 }
 
 // Cleanup remove all

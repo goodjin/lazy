@@ -4,12 +4,13 @@ import (
 	"bufio"
 	"context"
 	"fmt"
-	"github.com/owulveryck/lstm"
-	"github.com/owulveryck/lstm/datasetter/char"
 	"io"
 	"io/ioutil"
 	"os"
 	"strconv"
+
+	"github.com/owulveryck/lstm"
+	"github.com/owulveryck/lstm/datasetter/char"
 )
 
 // config json
@@ -33,7 +34,8 @@ type LSTMFilter struct {
 }
 
 // NewLSTMFilter create LSTMFilter
-func NewLSTMFilter(config map[string]string) *LSTMFilter {
+// default sampleSize = 100, HiddenSize == 100
+func NewLSTMFilter(config map[string]string) (*LSTMFilter, error) {
 	lstmfilter := &LSTMFilter{
 		VocabularyFile: config["VocabularyFile"],
 		ModelFile:      config["ModelFile"],
@@ -51,7 +53,7 @@ func NewLSTMFilter(config map[string]string) *LSTMFilter {
 	// input, output, hiddensize
 	lstmfilter.model = lstm.NewModel(lstmfilter.vocabSize, lstmfilter.vocabSize, lstmfilter.HiddenSize)
 	lstmfilter.RecoverModel()
-	return lstmfilter
+	return lstmfilter, nil
 }
 
 func (lstmfilter *LSTMFilter) newVocabulary() error {

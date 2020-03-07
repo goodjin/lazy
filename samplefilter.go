@@ -18,7 +18,7 @@ type SampleFilter struct {
 }
 
 // NewSampleFilter create SampleFilter
-func NewSampleFilter(config map[string]string) *SampleFilter {
+func NewSampleFilter(config map[string]string) (*SampleFilter, error) {
 	rate, err := strconv.Atoi(config["SampleRateMod"])
 	if err != nil {
 		rate = 1
@@ -27,7 +27,7 @@ func NewSampleFilter(config map[string]string) *SampleFilter {
 		SampleRateMod: rate,
 	}
 	rf.count = 0
-	return rf
+	return rf, err
 }
 
 // Handle proccess msg

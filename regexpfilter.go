@@ -23,7 +23,7 @@ type RegexpFilter struct {
 }
 
 // NewRegexpFilter create RegexpFilter
-func NewRegexpFilter(config map[string]string) *RegexpFilter {
+func NewRegexpFilter(config map[string]string) (*RegexpFilter, error) {
 	rf := &RegexpFilter{
 		KeyToFilter: config["KeyToFilter"],
 	}
@@ -43,7 +43,10 @@ func NewRegexpFilter(config map[string]string) *RegexpFilter {
 			fmt.Println(k, v, err)
 		}
 	}
-	return rf
+	if len(rf.regexpList) == 0 {
+		return rf, fmt.Errorf("null regexp")
+	}
+	return rf, nil
 }
 
 // Handle filter messages

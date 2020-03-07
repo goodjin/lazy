@@ -89,17 +89,47 @@ func NewLogProcessTask(name string, config []byte) (*LogProccessTask, error) {
 		v["Taskname"] = taskname
 		switch v["Type"] {
 		case "bayies":
-			logProcessTask.Filters[k] = NewBayiesFilter(v)
+			bayiesFilter, err := NewBayiesFilter(v)
+			if err == nil {
+				logProcessTask.Filters[k] = bayiesFilter
+			} else {
+				log.Printf("init %s error: %s", v["Type"], err)
+			}
 		case "regexp":
-			logProcessTask.Filters[k] = NewRegexpFilter(v)
+			regexpFilter, err := NewRegexpFilter(v)
+			if err == nil {
+				logProcessTask.Filters[k] = regexpFilter
+			} else {
+				log.Printf("init %s error: %s", v["Type"], err)
+			}
 		case "geoip2":
-			logProcessTask.Filters[k] = NewGeoIP2Filter(v)
+			geoIP2Filter, err := NewGeoIP2Filter(v)
+			if err == nil {
+				logProcessTask.Filters[k] = geoIP2Filter
+			} else {
+				log.Printf("init %s error: %s", v["Type"], err)
+			}
 		case "lstm":
-			logProcessTask.Filters[k] = NewLSTMFilter(v)
+			lstmFilter, err := NewLSTMFilter(v)
+			if err == nil {
+				logProcessTask.Filters[k] = lstmFilter
+			} else {
+				log.Printf("init %s error: %s", v["Type"], err)
+			}
 		case "ipinfo":
-			logProcessTask.Filters[k] = NewIPinfoFilter(v)
+			ipinfoFilter, err := NewIPinfoFilter(v)
+			if err == nil {
+				logProcessTask.Filters[k] = ipinfoFilter
+			} else {
+				log.Printf("init %s error: %s", v["Type"], err)
+			}
 		case "sample":
-			logProcessTask.Filters[k] = NewSampleFilter(v)
+			sampleFilter, err := NewSampleFilter(v)
+			if err == nil {
+				logProcessTask.Filters[k] = sampleFilter
+			} else {
+				log.Printf("init %s error: %s", v["Type"], err)
+			}
 		}
 	}
 	logProcessTask.InputSetting["Taskname"] = taskname
