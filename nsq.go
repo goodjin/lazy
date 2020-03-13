@@ -162,7 +162,13 @@ func (nsqWriter *NSQWriter) Start(dataChan chan *map[string]interface{}) {
 		case <-nsqWriter.exitChan:
 			return
 		case logmsg := <-dataChan:
-			item := (*logmsg)["rawmsg"].([]byte)
+			var item []byte
+			switch (*logmsg)["rawmsg"].(type) {
+			case string:
+				item = []byte((*logmsg)["rawmsg"].(string))
+			case []byte:
+				item = (*logmsg)["rawmsg"].([]byte)
+			}
 			if nsqWriter.BatchSize > 1 {
 				if len(body) < nsqWriter.BatchSize {
 					body = append(body, item)
